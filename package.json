@@ -12,10 +12,10 @@
     "cf-typegen": "wrangler types"
   },
   "dependencies": {
+    "qrcode": "^1.5.4",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "react-router-dom": "^6.28.0",
-    "qrcode": "^1.5.4"
+    "react-router-dom": "^6.28.0"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "^1.2.0",

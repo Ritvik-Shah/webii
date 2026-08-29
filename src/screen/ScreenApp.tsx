@@ -9,31 +9,22 @@ import { WiiMenu } from "./WiiMenu";
 import { DebugOverlay } from "./DebugOverlay";
 import { CHANNELS } from "./channels";
 import { MiiSelect } from "./mii/MiiSelect";
-import { LaneSelect } from "./mii/LaneSelect";
 import type { Mii } from "./mii/Mii";
-import { Bowling } from "./games/Bowling";
 import { TargetPractice } from "./games/TargetPractice";
 import { Tanks } from "./games/Tanks";
 import { Charge } from "./games/Charge";
 import type { GameProps } from "./games/types";
 
 const GAME_SCREENS: Record<string, ComponentType<GameProps>> = {
-  bowling: Bowling,
   target: TargetPractice,
   tanks: Tanks,
   charge: Charge,
 };
 
-// Bowling gets an extra lane-select step between choosing a Mii and playing,
-// matching the real game's flow. Every other channel goes straight from Mii
-// select into the game.
-const CHANNELS_WITH_LANE_SELECT = new Set(["bowling"]);
-
 type ScreenView =
   | { kind: "menu" }
   | { kind: "mii-select"; channelId: string }
-  | { kind: "lane-select"; channelId: string; mii: Mii }
-  | { kind: "game"; channelId: string; mii: Mii; lane?: number };
+  | { kind: "game"; channelId: string; mii: Mii };
 
 export function ScreenApp() {
   const [roomCode, setRoomCode] = useState<string | null>(null);
@@ -62,9 +53,9 @@ export function ScreenApp() {
       setPresence(msg);
       return;
     }
-    // HOME always returns to the Wii Menu, from any view (game, Mii select,
-    // lane select), handled centrally here so individual screens don't each
-    // need to listen for it.
+    // HOME always returns to the Wii Menu, from any view (game or Mii
+    // select), handled centrally here so individual screens don't each need
+    // to listen for it.
     if (msg.type === "button" && msg.button === "HOME" && msg.state === "down") {
       setView({ kind: "menu" });
     }
@@ -84,18 +75,7 @@ export function ScreenApp() {
   const handleMiiSelected = useCallback((mii: Mii) => {
     setView((current) => {
       if (current.kind !== "mii-select") return current;
-      const { channelId } = current;
-      if (CHANNELS_WITH_LANE_SELECT.has(channelId)) {
-        return { kind: "lane-select", channelId, mii };
-      }
-      return { kind: "game", channelId, mii };
-    });
-  }, []);
-
-  const handleLaneSelected = useCallback((lane: number) => {
-    setView((current) => {
-      if (current.kind !== "lane-select") return current;
-      return { kind: "game", channelId: current.channelId, mii: current.mii, lane };
+      return { kind: "game", channelId: current.channelId, mii };
     });
   }, []);
 
@@ -122,19 +102,11 @@ export function ScreenApp() {
           />
         );
       }
-      case "lane-select":
-        return <LaneSelect subscribe={subscribe} onSelect={handleLaneSelected} />;
       case "game": {
         const GameScreen = GAME_SCREENS[view.channelId];
         if (!GameScreen) return null;
         return (
-          <GameScreen
-            send={send}
-            subscribe={subscribe}
-            onExit={() => setView({ kind: "menu" })}
-            mii={view.mii}
-            lane={view.lane}
-          />
+          <GameScreen send={send} subscribe={subscribe} onExit={() => setView({ kind: "menu" })} mii={view.mii} />
         );
       }
       default:

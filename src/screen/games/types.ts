@@ -14,7 +14,4 @@ export interface GameProps {
    * for it themselves. */
   onExit: () => void;
   mii: Mii;
-  /** Set only for games with a lane-select step before play (currently just
-   * Bowling). 1-indexed lane number, purely presentational for now. */
-  lane?: number;
 }

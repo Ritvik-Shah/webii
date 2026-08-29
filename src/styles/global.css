@@ -1,0 +1,668 @@
+/* =========================================================================
+   Webii — global stylesheet
+   A from-scratch, original reinterpretation of the 2006 Wii Menu "feel".
+   No external assets, no network requests, no CSS modules — plain global CSS.
+   ========================================================================= */
+
+/* ---------- Reset ---------- */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  color: #16324a;
+  overflow-x: hidden;
+}
+
+button,
+input {
+  font-family: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+  background: none;
+  border: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+a {
+  color: inherit;
+}
+
+/* =========================================================================
+   Design tokens
+   ========================================================================= */
+
+:root {
+  /* Wii-blue screen palette */
+  --wii-blue-1: #cdeeff;
+  --wii-blue-2: #8fd4f5;
+  --wii-blue-3: #4fb3e8;
+  --wii-blue-4: #1f8fd6;
+  --wii-white: #ffffff;
+  --wii-ink: #16324a;
+  --wii-ink-soft: rgba(22, 50, 74, 0.65);
+
+  /* Controller (phone) palette — dark, focused, device-like */
+  --ctrl-bg-1: #0e1420;
+  --ctrl-bg-2: #161f30;
+  --ctrl-surface: #1d2838;
+  --ctrl-surface-raised: #24304350;
+  --ctrl-text: #eef4fb;
+  --ctrl-text-soft: rgba(238, 244, 251, 0.6);
+
+  --ctrl-a: #4fd67a;
+  --ctrl-a-shadow: #2f9d55;
+  --ctrl-b: #ff6b6b;
+  --ctrl-b-shadow: #cc4747;
+  --ctrl-home: #8fa3bd;
+  --ctrl-home-shadow: #63748c;
+  --ctrl-recenter: #ffc65c;
+
+  --status-ok: #4fd67a;
+  --status-bad: #ff6b6b;
+  --status-warn: #ffc65c;
+
+  --radius-lg: 20px;
+  --radius-md: 14px;
+  --radius-sm: 10px;
+
+  --shadow-tile: 0 6px 16px rgba(15, 60, 90, 0.18);
+  --shadow-tile-hover: 0 14px 30px rgba(15, 60, 90, 0.32);
+}
+
+/* =========================================================================
+   SCREEN SIDE — src/screen/*
+   Bright, cheerful, "Wii Menu" blue gradient world.
+   ========================================================================= */
+
+.screen-root {
+  min-height: 100dvh;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(
+    160deg,
+    var(--wii-blue-1) 0%,
+    var(--wii-blue-2) 35%,
+    var(--wii-blue-3) 70%,
+    var(--wii-blue-4) 100%
+  );
+  background-size: 200% 200%;
+  animation: wii-bg-drift 22s ease-in-out infinite;
+  color: var(--wii-ink);
+  position: relative;
+  overflow: hidden;
+}
+
+@keyframes wii-bg-drift {
+  0% {
+    background-position: 0% 30%;
+  }
+  50% {
+    background-position: 100% 70%;
+  }
+  100% {
+    background-position: 0% 30%;
+  }
+}
+
+.screen-loading {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--wii-ink);
+  letter-spacing: 0.02em;
+}
+
+/* ---------- Pairing screen ---------- */
+
+.pairing-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 48px 32px;
+  text-align: center;
+  max-width: 560px;
+}
+
+.pairing-title {
+  font-size: clamp(2.75rem, 6vw, 4.5rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--wii-white);
+  text-shadow: 0 4px 18px rgba(15, 60, 90, 0.35);
+}
+
+.pairing-sub {
+  font-size: clamp(1rem, 2vw, 1.25rem);
+  font-weight: 500;
+  color: var(--wii-ink-soft);
+  margin-top: -8px;
+}
+
+.pairing-qr {
+  background: var(--wii-white);
+  padding: 16px;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-tile);
+  margin-top: 8px;
+}
+
+.pairing-code {
+  font-size: clamp(2.5rem, 7vw, 3.75rem);
+  font-weight: 800;
+  letter-spacing: 0.28em;
+  color: var(--wii-ink);
+  background: var(--wii-white);
+  padding: 14px 28px;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-tile);
+  text-indent: 0.28em; /* recenters visually against the trailing letter-spacing gap */
+}
+
+.pairing-hint {
+  font-size: 0.95rem;
+  color: var(--wii-ink-soft);
+  font-weight: 500;
+}
+
+.pairing-status {
+  font-size: 0.9rem;
+  color: var(--wii-ink-soft);
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.45);
+}
+
+/* ---------- Wii Menu (channel grid) ---------- */
+
+.wii-menu {
+  position: relative;
+  width: 100%;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  padding: 20px clamp(20px, 4vw, 48px);
+  gap: 16px;
+}
+
+.wii-menu-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 20px;
+  background: rgba(255, 255, 255, 0.35);
+  border-radius: var(--radius-md);
+  backdrop-filter: blur(6px);
+  flex: 0 0 auto;
+}
+
+.wii-logo {
+  font-size: 1.4rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--wii-white);
+  text-shadow: 0 2px 10px rgba(15, 60, 90, 0.3);
+}
+
+.wii-grid {
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  gap: clamp(10px, 1.6vw, 20px);
+  min-height: 0;
+}
+
+.wii-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: linear-gradient(180deg, #ffffff 0%, #f3f9fd 100%);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-tile);
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+  transform-origin: center;
+  border-top: 5px solid var(--accent, var(--wii-blue-4));
+}
+
+.wii-tile::after {
+  /* soft accent glow in the lower corner, echoes the channel color */
+  content: "";
+  position: absolute;
+  inset: auto -30% -40% auto;
+  width: 60%;
+  height: 60%;
+  border-radius: 50%;
+  background: var(--accent, var(--wii-blue-4));
+  opacity: 0.12;
+  pointer-events: none;
+}
+
+.wii-tile-title {
+  font-size: clamp(0.95rem, 1.4vw, 1.15rem);
+  font-weight: 700;
+  color: var(--wii-ink);
+  text-align: center;
+  padding: 0 10px;
+  z-index: 1;
+}
+
+.wii-tile-badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #7a8a99;
+  background: #eef2f6;
+  border-radius: 999px;
+  padding: 4px 10px;
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 1;
+}
+
+.wii-tile-hover {
+  z-index: 5;
+  box-shadow: var(--shadow-tile-hover);
+  animation: wii-wobble 0.4s ease-in-out infinite;
+}
+
+@keyframes wii-wobble {
+  0% {
+    transform: rotate(-2deg) scale(1.05);
+  }
+  50% {
+    transform: rotate(2deg) scale(1.05);
+  }
+  100% {
+    transform: rotate(-2deg) scale(1.05);
+  }
+}
+
+.wii-tile-launch {
+  z-index: 10;
+  animation: wii-launch 0.6s ease-out;
+}
+
+@keyframes wii-launch {
+  0% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+  40% {
+    transform: scale(1.3);
+    filter: brightness(1.4);
+  }
+  70% {
+    transform: scale(1.15);
+    filter: brightness(1.15);
+    opacity: 0.85;
+  }
+  100% {
+    transform: scale(1.3);
+    filter: brightness(1.6);
+    opacity: 0;
+  }
+}
+
+/* ---------- Cursor ---------- */
+
+.wii-cursor {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform: translate(-50%, -50%);
+  z-index: 50;
+  pointer-events: none;
+  transition: left 0.03s linear, top 0.03s linear;
+  filter: drop-shadow(0 3px 6px rgba(15, 60, 90, 0.4));
+}
+
+.wii-cursor-glyph {
+  display: block;
+  width: 36px;
+  height: 36px;
+}
+
+/* ---------- Toast ---------- */
+
+.wii-toast {
+  position: absolute;
+  left: 50%;
+  bottom: clamp(20px, 4vh, 56px);
+  transform: translateX(-50%);
+  z-index: 60;
+  background: rgba(16, 32, 48, 0.85);
+  color: var(--wii-white);
+  font-size: 0.95rem;
+  font-weight: 600;
+  padding: 12px 22px;
+  border-radius: 999px;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.25);
+  animation: wii-toast-in 0.25s ease-out;
+  white-space: nowrap;
+}
+
+@keyframes wii-toast-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 12px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+/* =========================================================================
+   CONTROLLER SIDE — src/controller/*
+   Dark, focused, "device in your hand" world. Huge tap targets.
+   ========================================================================= */
+
+.join-screen,
+.permission-gate,
+.wiimote {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ---------- Join screen (manual code entry) ---------- */
+
+.join-screen {
+  min-height: 100dvh;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  padding: max(24px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right))
+    max(24px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left));
+  text-align: center;
+  background: radial-gradient(circle at 50% 20%, var(--ctrl-bg-2), var(--ctrl-bg-1));
+  color: var(--ctrl-text);
+}
+
+.join-form {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 14px;
+  width: 100%;
+  max-width: 340px;
+}
+
+.join-input {
+  width: 100%;
+  min-height: 64px;
+  font-size: 1.75rem;
+  font-weight: 700;
+  text-align: center;
+  letter-spacing: 0.3em;
+  text-indent: 0.3em;
+  text-transform: uppercase;
+  color: var(--ctrl-text);
+  background: var(--ctrl-surface);
+  border: 2px solid rgba(238, 244, 251, 0.12);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  touch-action: manipulation;
+}
+
+.join-input:focus {
+  outline: none;
+  border-color: var(--ctrl-a);
+}
+
+.join-button {
+  min-height: 64px;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #0b1a10;
+  background: var(--ctrl-a);
+  border-radius: var(--radius-md);
+  box-shadow: 0 6px 0 var(--ctrl-a-shadow);
+  touch-action: manipulation;
+  transition: transform 0.08s ease, box-shadow 0.08s ease;
+}
+
+.join-button:active {
+  transform: translateY(4px);
+  box-shadow: 0 2px 0 var(--ctrl-a-shadow);
+}
+
+/* ---------- Permission gate ---------- */
+
+.permission-gate {
+  min-height: 100dvh;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 26px;
+  padding: max(24px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right))
+    max(24px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left));
+  text-align: center;
+  background: radial-gradient(circle at 50% 20%, var(--ctrl-bg-2), var(--ctrl-bg-1));
+  color: var(--ctrl-text);
+}
+
+.permission-button {
+  min-width: 220px;
+  min-height: 88px;
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  color: #0b1a10;
+  background: linear-gradient(180deg, #63e392, var(--ctrl-a));
+  border-radius: 999px;
+  box-shadow: 0 8px 0 var(--ctrl-a-shadow), 0 16px 30px rgba(0, 0, 0, 0.35);
+  touch-action: manipulation;
+  transition: transform 0.08s ease, box-shadow 0.08s ease;
+}
+
+.permission-button:active {
+  transform: translateY(5px);
+  box-shadow: 0 3px 0 var(--ctrl-a-shadow), 0 8px 18px rgba(0, 0, 0, 0.3);
+}
+
+.permission-error {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #ffb199;
+  max-width: 320px;
+}
+
+/* ---------- Wiimote (main remote) ---------- */
+
+.wiimote {
+  min-height: 100dvh;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(180deg, var(--ctrl-bg-2) 0%, var(--ctrl-bg-1) 100%);
+  color: var(--ctrl-text);
+  padding-top: max(14px, env(safe-area-inset-top));
+  padding-right: max(14px, env(safe-area-inset-right));
+  padding-bottom: max(14px, env(safe-area-inset-bottom));
+  padding-left: max(14px, env(safe-area-inset-left));
+  overflow: hidden;
+}
+
+.wiimote-status {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.status-ok,
+.status-bad,
+.status-warn {
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.78rem;
+  letter-spacing: 0.02em;
+}
+
+.status-ok {
+  color: var(--status-ok);
+  background: rgba(79, 214, 122, 0.14);
+}
+
+.status-bad {
+  color: var(--status-bad);
+  background: rgba(255, 107, 107, 0.14);
+}
+
+.status-warn {
+  color: var(--status-warn);
+  background: rgba(255, 198, 92, 0.14);
+}
+
+.wiimote-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-rows: auto 1fr auto;
+  align-items: center;
+  justify-items: center;
+  gap: 14px;
+  padding: 10px 12px 4px;
+}
+
+.wiimote-btn {
+  min-width: 64px;
+  min-height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  font-weight: 800;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.06s ease, box-shadow 0.06s ease, filter 0.06s ease;
+  user-select: none;
+}
+
+.wiimote-btn:active {
+  transform: translateY(3px) scale(0.97);
+  filter: brightness(0.92);
+}
+
+.wiimote-home {
+  grid-column: 2 / 3;
+  grid-row: 1 / 2;
+  width: 72px;
+  height: 72px;
+  min-width: 64px;
+  min-height: 64px;
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+  color: var(--ctrl-text);
+  background: var(--ctrl-surface);
+  border: 2px solid var(--ctrl-home);
+  box-shadow: 0 4px 0 var(--ctrl-home-shadow);
+}
+
+.wiimote-a {
+  grid-column: 1 / 4;
+  grid-row: 2 / 3;
+  width: min(46vw, 220px);
+  height: min(46vw, 220px);
+  min-width: 64px;
+  min-height: 64px;
+  font-size: 2.75rem;
+  color: #0b1a10;
+  background: radial-gradient(circle at 35% 30%, #7cf0a4, var(--ctrl-a) 70%);
+  box-shadow: 0 10px 0 var(--ctrl-a-shadow), 0 18px 36px rgba(0, 0, 0, 0.4);
+}
+
+.wiimote-a:active {
+  box-shadow: 0 4px 0 var(--ctrl-a-shadow), 0 8px 20px rgba(0, 0, 0, 0.35);
+}
+
+.wiimote-b {
+  grid-column: 1 / 2;
+  grid-row: 3 / 4;
+  width: 96px;
+  height: 96px;
+  min-width: 64px;
+  min-height: 64px;
+  font-size: 1.5rem;
+  color: #2a0b0b;
+  background: radial-gradient(circle at 35% 30%, #ff9d9d, var(--ctrl-b) 70%);
+  box-shadow: 0 7px 0 var(--ctrl-b-shadow), 0 14px 28px rgba(0, 0, 0, 0.35);
+}
+
+.wiimote-b:active {
+  box-shadow: 0 3px 0 var(--ctrl-b-shadow), 0 6px 16px rgba(0, 0, 0, 0.3);
+}
+
+.wiimote-recenter {
+  grid-column: 3 / 4;
+  grid-row: 3 / 4;
+  width: 80px;
+  height: 80px;
+  min-width: 64px;
+  min-height: 64px;
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+  color: var(--ctrl-recenter);
+  background: transparent;
+  border: 2px solid var(--ctrl-recenter);
+  box-shadow: none;
+}
+
+.wiimote-recenter:active {
+  background: rgba(255, 198, 92, 0.15);
+  transform: scale(0.94);
+}
+
+.wiimote-hint {
+  flex: 0 0 auto;
+  text-align: center;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--ctrl-text-soft);
+  padding: 8px 12px 4px;
+}

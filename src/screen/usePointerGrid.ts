@@ -9,12 +9,6 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
 
-function indexForPosition(x: number, y: number, cols: number, rows: number) {
-  const col = clamp(Math.floor((x / 100) * cols), 0, cols - 1);
-  const row = clamp(Math.floor((y / 100) * rows), 0, rows - 1);
-  return row * cols + col;
-}
-
 /**
  * Shared phone-pointer-driven grid cursor: tracks an absolute cursor
  * position from `pointer`/`recenter` messages (written imperatively to a
@@ -22,28 +16,54 @@ function indexForPosition(x: number, y: number, cols: number, rows: number) {
  * hovering (only re-rendering when that actually changes, with a hover
  * chime), and edge-triggers `onSelect(index)` on an A-button down press.
  *
+ * `hoveredIndex` is computed from the grid container's real on-screen
+ * bounding box (via `gridRef`, which callers must attach to their grid
+ * element), not from the cursor's raw screen-percent position -- a layout
+ * with a header/padding around the grid (every screen that uses this) means
+ * "50% down the screen" and "50% down the grid" are different places, so
+ * using the raw percent directly caused the highlighted tile to visibly
+ * disagree with where the cursor glyph actually was. `hoveredIndex` is
+ * `null` whenever the cursor is genuinely outside the grid's bounds (e.g.
+ * over the header) -- no tile is forced to stay highlighted in that case,
+ * and A does nothing while it's null.
+ *
  * Used by the Wii Menu and any other pointer-navigated grid screen (Mii
- * select, lane select) so this logic lives in exactly one place instead of
- * being copy-pasted per screen.
+ * select, etc.) so this logic lives in exactly one place instead of being
+ * copy-pasted per screen.
  */
 export function usePointerGrid(
   subscribe: (fn: (msg: ControllerMessage) => void) => () => void,
   cols: number,
   rows: number,
   onSelect: (index: number) => void,
-): { cursorRef: RefObject<HTMLDivElement | null>; hoveredIndex: number } {
+): { cursorRef: RefObject<HTMLDivElement | null>; gridRef: RefObject<HTMLDivElement | null>; hoveredIndex: number | null } {
   const cursorRef = useRef<HTMLDivElement | null>(null);
+  const gridRef = useRef<HTMLDivElement | null>(null);
   const positionRef = useRef({ x: 50, y: 50 });
-  const hoveredIndexRef = useRef(indexForPosition(50, 50, cols, rows));
+  const hoveredIndexRef = useRef<number | null>(null);
   const aDownRef = useRef(false);
-  const [hoveredIndex, setHoveredIndex] = useState(hoveredIndexRef.current);
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const onSelectRef = useRef(onSelect);
   onSelectRef.current = onSelect;
 
   useEffect(() => {
-    // Grid shape changed (a different screen mounted) -- reset to center.
-    hoveredIndexRef.current = indexForPosition(50, 50, cols, rows);
-    setHoveredIndex(hoveredIndexRef.current);
+    // Grid shape changed (a different screen mounted) -- nothing's hovered
+    // until the next real pointer reading comes in (within ~33ms).
+    hoveredIndexRef.current = null;
+    setHoveredIndex(null);
+
+    function indexForScreenPercent(xPercent: number, yPercent: number): number | null {
+      const grid = gridRef.current;
+      if (!grid) return null;
+      const rect = grid.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) return null;
+      const px = (xPercent / 100) * window.innerWidth;
+      const py = (yPercent / 100) * window.innerHeight;
+      if (px < rect.left || px > rect.right || py < rect.top || py > rect.bottom) return null;
+      const col = clamp(Math.floor(((px - rect.left) / rect.width) * cols), 0, cols - 1);
+      const row = clamp(Math.floor(((py - rect.top) / rect.height) * rows), 0, rows - 1);
+      return row * cols + col;
+    }
 
     function applyPosition(x: number, y: number) {
       positionRef.current = { x, y };
@@ -52,11 +72,11 @@ export function usePointerGrid(
         el.style.left = `${x}%`;
         el.style.top = `${y}%`;
       }
-      const nextIndex = indexForPosition(x, y, cols, rows);
+      const nextIndex = indexForScreenPercent(x, y);
       if (nextIndex !== hoveredIndexRef.current) {
         hoveredIndexRef.current = nextIndex;
         setHoveredIndex(nextIndex);
-        playHoverTick();
+        if (nextIndex !== null) playHoverTick();
       }
     }
 
@@ -76,7 +96,7 @@ export function usePointerGrid(
           if (msg.button === "A") {
             if (msg.state === "down" && !aDownRef.current) {
               aDownRef.current = true;
-              onSelectRef.current(hoveredIndexRef.current);
+              if (hoveredIndexRef.current !== null) onSelectRef.current(hoveredIndexRef.current);
             } else if (msg.state === "up") {
               aDownRef.current = false;
             }
@@ -91,7 +111,7 @@ export function usePointerGrid(
     return subscribe(handler);
   }, [subscribe, cols, rows]);
 
-  return { cursorRef, hoveredIndex };
+  return { cursorRef, gridRef, hoveredIndex };
 }
 
 /**

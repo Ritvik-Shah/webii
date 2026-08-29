@@ -9,6 +9,7 @@ import { WiiMenu } from "./WiiMenu";
 import { DebugOverlay } from "./DebugOverlay";
 import { CHANNELS } from "./channels";
 import { MiiSelect } from "./mii/MiiSelect";
+import { MiiChannel } from "./mii/MiiChannel";
 import type { Mii } from "./mii/Mii";
 import { TargetPractice } from "./games/TargetPractice";
 import { Tanks } from "./games/Tanks";
@@ -30,6 +31,7 @@ const GAME_SCREENS: Record<string, ComponentType<GameProps>> = {
 
 type ScreenView =
   | { kind: "menu" }
+  | { kind: "mii-channel" }
   | { kind: "mii-select"; channelId: string }
   | { kind: "game"; channelId: string; mii: Mii };
 
@@ -76,7 +78,14 @@ export function ScreenApp() {
   });
 
   const handleLaunch = useCallback((channelId: string) => {
-    setView({ kind: "mii-select", channelId });
+    // The Mii Channel IS the "pick/make a Mii" experience -- routing it
+    // through Mii Select first would be circular, so it skips straight to
+    // the editor.
+    if (channelId === "mii") {
+      setView({ kind: "mii-channel" });
+    } else {
+      setView({ kind: "mii-select", channelId });
+    }
   }, []);
 
   const handleMiiSelected = useCallback((mii: Mii) => {
@@ -99,6 +108,8 @@ export function ScreenApp() {
     switch (view.kind) {
       case "menu":
         return <WiiMenu send={send} subscribe={subscribe} onLaunch={handleLaunch} />;
+      case "mii-channel":
+        return <MiiChannel subscribe={subscribe} onExit={() => setView({ kind: "menu" })} />;
       case "mii-select": {
         const channel = CHANNELS.find((c) => c.id === view.channelId);
         return (

@@ -5,25 +5,117 @@
   flex-shrink: 0;
 }
 
+/* ---------------------------------------------------------------------- */
+/* Height: only the legs stretch/shrink (top of legs is pinned at a fixed
+   multiple of --mii-size, bottom is pinned to the container edge, so
+   changing container height only changes leg length). Head/body/arms use
+   calc(var(--mii-size) * n) for their vertical metrics so they stay a
+   constant absolute size regardless of the height class -- this keeps the
+   head from stretching into an oval when the character gets "tall". */
+/* ---------------------------------------------------------------------- */
+.mii-height-short {
+  height: calc(var(--mii-size) * 1.22);
+}
+.mii-height-average {
+  height: calc(var(--mii-size) * 1.4);
+}
+.mii-height-tall {
+  height: calc(var(--mii-size) * 1.58);
+}
+
 .mii-body {
   position: absolute;
-  top: 38%;
+  top: calc(var(--mii-size) * 0.532);
   left: 50%;
   transform: translateX(-50%);
   width: 58%;
-  height: 34%;
+  height: calc(var(--mii-size) * 0.476);
   border-radius: 30% 30% 22% 22%;
-  background: var(--mii-shirt);
+  background-color: var(--mii-shirt);
   box-shadow: inset 0 -6px 10px rgb(0 0 0 / 0.12);
+}
+
+/* ---------------------------------------------------------------------- */
+/* Build: torso/leg/arm width multipliers. "average" matches the original
+   proportions, so it needs no overrides. */
+/* ---------------------------------------------------------------------- */
+.mii-build-slim .mii-body {
+  width: 46%;
+}
+.mii-build-wide .mii-body {
+  width: 72%;
+}
+.mii-build-slim .mii-arm {
+  width: 11%;
+}
+.mii-build-wide .mii-arm {
+  width: 16%;
+}
+.mii-build-slim .mii-legs {
+  width: 36%;
+}
+.mii-build-wide .mii-legs {
+  width: 56%;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Shirt style */
+/* ---------------------------------------------------------------------- */
+.mii-shirt-striped {
+  background-image: repeating-linear-gradient(
+    180deg,
+    rgb(255 255 255 / 0.32) 0 4px,
+    transparent 4px 10px
+  );
+}
+.mii-shirt-collared {
+  overflow: visible;
+}
+.mii-shirt-collared::before {
+  content: "";
+  position: absolute;
+  top: -4%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 34%;
+  height: 18%;
+  background: #f2f2f2;
+  clip-path: polygon(50% 100%, 0% 0%, 100% 0%);
+}
+.mii-shirt-hoodie::before {
+  content: "";
+  position: absolute;
+  top: -14%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 76%;
+  height: 24%;
+  background: var(--mii-shirt);
+  border-radius: 50% 50% 15% 15%;
+  z-index: -1;
+}
+.mii-shirt-hoodie::after {
+  content: "";
+  position: absolute;
+  top: 4%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 5%;
+  height: 5%;
+  border-radius: 50%;
+  background: #f2f2f2;
+  box-shadow:
+    calc(var(--mii-size) * 0.045) calc(var(--mii-size) * 0.03) 0 #f2f2f2,
+    calc(var(--mii-size) * -0.045) calc(var(--mii-size) * 0.03) 0 #f2f2f2;
 }
 
 .mii-legs {
   position: absolute;
+  top: calc(var(--mii-size) * 1.118);
   bottom: 0;
   left: 50%;
   transform: translateX(-50%);
   width: 46%;
-  height: 20%;
   display: flex;
   justify-content: space-between;
 }
@@ -38,9 +130,9 @@
 
 .mii-arm {
   position: absolute;
-  top: 40%;
+  top: calc(var(--mii-size) * 0.56);
   width: 13%;
-  height: 30%;
+  height: calc(var(--mii-size) * 0.42);
   border-radius: 40%;
   background: var(--mii-skin);
   transform-origin: 50% 8%;
@@ -89,7 +181,7 @@
 }
 
 .mii-pose-sword-ready .mii-arm-right {
-  top: 18%;
+  top: calc(var(--mii-size) * 0.18);
   transform: rotate(-100deg);
 }
 
@@ -99,12 +191,33 @@
   left: 50%;
   transform: translateX(-50%);
   width: 54%;
-  height: 38%;
+  height: calc(var(--mii-size) * 0.532);
   border-radius: 50%;
   background: var(--mii-skin);
   box-shadow: inset 0 -6px 8px rgb(0 0 0 / 0.08);
+  overflow: visible;
 }
 
+/* ---------------------------------------------------------------------- */
+/* Face shape (head silhouette) */
+/* ---------------------------------------------------------------------- */
+.mii-face-oval {
+  width: 48%;
+  height: calc(var(--mii-size) * 0.58);
+  border-radius: 50%;
+}
+.mii-face-square {
+  width: 56%;
+  border-radius: 18%;
+}
+.mii-face-heart {
+  border-radius: 50% 50% 38% 38%;
+  clip-path: polygon(6% 28%, 20% 4%, 50% 0%, 80% 4%, 94% 28%, 94% 64%, 50% 100%, 6% 64%);
+}
+
+/* ---------------------------------------------------------------------- */
+/* Hair -- 12 styles, all painted with var(--mii-hair) */
+/* ---------------------------------------------------------------------- */
 .mii-hair {
   position: absolute;
   top: -8%;
@@ -118,9 +231,49 @@
 .mii-hair-bald {
   display: none;
 }
+.mii-hair-buzz {
+  top: -2%;
+  height: 12%;
+  border-radius: 50% 50% 20% 20%;
+  opacity: 0.85;
+}
+.mii-hair-messy {
+  height: 34%;
+  clip-path: polygon(
+    0% 30%,
+    10% 0%,
+    25% 22%,
+    38% 2%,
+    52% 24%,
+    65% 0%,
+    80% 20%,
+    92% 2%,
+    100% 30%,
+    100% 100%,
+    0% 100%
+  );
+}
 .mii-hair-long {
   height: 58%;
   border-radius: 50% 50% 35% 35%;
+}
+.mii-hair-wavy {
+  height: 56%;
+  border-radius: 50% 50% 0 0;
+  clip-path: polygon(
+    0% 0%,
+    100% 0%,
+    100% 78%,
+    88% 90%,
+    76% 76%,
+    64% 90%,
+    52% 76%,
+    40% 90%,
+    28% 76%,
+    16% 90%,
+    4% 76%,
+    0% 88%
+  );
 }
 .mii-hair-ponytail {
   height: 34%;
@@ -135,6 +288,27 @@
   border-radius: 40%;
   background: var(--mii-hair);
   transform: rotate(35deg);
+}
+.mii-hair-pigtails {
+  height: 30%;
+}
+.mii-hair-pigtails::before,
+.mii-hair-pigtails::after {
+  content: "";
+  position: absolute;
+  top: 18%;
+  width: 20%;
+  height: 50%;
+  border-radius: 40%;
+  background: var(--mii-hair);
+}
+.mii-hair-pigtails::before {
+  left: -15%;
+  transform: rotate(-25deg);
+}
+.mii-hair-pigtails::after {
+  right: -15%;
+  transform: rotate(25deg);
 }
 .mii-hair-spiky {
   height: 30%;
@@ -151,36 +325,218 @@
     100% 100%
   );
 }
+.mii-hair-mohawk {
+  width: 16%;
+  height: 46%;
+  top: -22%;
+  border-radius: 40% 40% 0 0;
+}
+.mii-hair-curly {
+  height: 36%;
+  border-radius: 50%;
+  box-shadow:
+    calc(var(--mii-size) * -0.15) calc(var(--mii-size) * 0.05) 0 calc(var(--mii-size) * -0.01) var(--mii-hair),
+    calc(var(--mii-size) * 0.15) calc(var(--mii-size) * 0.05) 0 calc(var(--mii-size) * -0.01) var(--mii-hair),
+    0 calc(var(--mii-size) * -0.08) 0 calc(var(--mii-size) * -0.03) var(--mii-hair);
+}
+.mii-hair-bob {
+  width: 70%;
+  height: 44%;
+  border-radius: 50% 50% 45% 45%;
+}
 
-.mii-face {
+/* ---------------------------------------------------------------------- */
+/* Eyebrows -- painted with var(--mii-hair), matching real hair color */
+/* ---------------------------------------------------------------------- */
+.mii-eyebrows {
+  position: absolute;
+  inset: 0;
+}
+.mii-eyebrow {
+  position: absolute;
+  top: 34%;
+  width: 12%;
+  height: 3%;
+  border-radius: 3px;
+  background: var(--mii-hair);
+}
+.mii-eyebrow-left {
+  left: 23%;
+}
+.mii-eyebrow-right {
+  right: 23%;
+}
+.mii-eyebrows-thick .mii-eyebrow {
+  height: 5.5%;
+  border-radius: 4px;
+}
+.mii-eyebrows-thin .mii-eyebrow {
+  width: 10%;
+  height: 1.5%;
+}
+.mii-eyebrows-angled .mii-eyebrow-left {
+  transform: rotate(-16deg);
+}
+.mii-eyebrows-angled .mii-eyebrow-right {
+  transform: rotate(16deg);
+}
+.mii-eyebrows-raised .mii-eyebrow {
+  top: 27%;
+}
+.mii-eyebrows-unibrow .mii-eyebrow-left {
+  left: 22%;
+  width: 55%;
+}
+.mii-eyebrows-unibrow .mii-eyebrow-right {
+  display: none;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Eyes -- white sclera + a var(--mii-eye-color) pupil on top */
+/* ---------------------------------------------------------------------- */
+.mii-eyes {
   position: absolute;
   inset: 0;
 }
 .mii-eye {
   position: absolute;
-  top: 46%;
-  width: 10%;
-  height: 10%;
+  top: 44%;
+  width: 11%;
+  height: 11%;
   border-radius: 50%;
-  background: #2a2a2e;
+  background: #fff;
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.15);
+}
+.mii-eye::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 56%;
+  height: 56%;
+  border-radius: 50%;
+  background: var(--mii-eye-color);
+  transform: translate(-50%, -50%);
 }
 .mii-eye-left {
-  left: 26%;
+  left: 24%;
 }
 .mii-eye-right {
-  right: 26%;
+  right: 24%;
 }
-.mii-face-cool .mii-eye {
-  height: 4%;
-  top: 49%;
-  border-radius: 2px;
-}
-.mii-face-surprised .mii-eye {
-  width: 13%;
-  height: 13%;
+.mii-eyes-round .mii-eye {
+  width: 14%;
+  height: 14%;
   top: 42%;
 }
+.mii-eyes-sleepy .mii-eye {
+  height: 4%;
+  top: 48%;
+  border-radius: 2px;
+}
+.mii-eyes-sleepy .mii-eye::after {
+  width: 80%;
+  height: 100%;
+}
+.mii-eyes-angry .mii-eye {
+  height: 8%;
+  top: 46%;
+}
+.mii-eyes-angry .mii-eye-left {
+  transform: rotate(18deg);
+}
+.mii-eyes-angry .mii-eye-right {
+  transform: rotate(-18deg);
+}
+.mii-eyes-wide .mii-eye {
+  width: 15%;
+  height: 15%;
+  top: 42%;
+}
+.mii-eyes-wide .mii-eye-left {
+  left: 18%;
+}
+.mii-eyes-wide .mii-eye-right {
+  right: 18%;
+}
+.mii-eyes-happy .mii-eye {
+  background: transparent;
+  width: 13%;
+  height: 9%;
+  top: 44%;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  border-top-color: #2a2a2e;
+  box-shadow: none;
+}
+.mii-eyes-happy .mii-eye::after {
+  display: none;
+}
+.mii-eyes-star .mii-eye {
+  width: 16%;
+  height: 16%;
+  top: 41%;
+  background: var(--mii-eye-color);
+  box-shadow: none;
+  clip-path: polygon(
+    50% 0%,
+    61% 35%,
+    98% 35%,
+    68% 57%,
+    79% 91%,
+    50% 70%,
+    21% 91%,
+    32% 57%,
+    2% 35%,
+    39% 35%
+  );
+}
+.mii-eyes-star .mii-eye::after {
+  display: none;
+}
 
+/* ---------------------------------------------------------------------- */
+/* Nose -- a subtle shaded shape (mix-blend-mode so it reads on any skin
+   tone without needing a dedicated color field) */
+/* ---------------------------------------------------------------------- */
+.mii-nose {
+  position: absolute;
+  top: 58%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 6%;
+  height: 6%;
+  border-radius: 50%;
+  background: rgb(0 0 0 / 0.18);
+  mix-blend-mode: multiply;
+}
+.mii-nose-small {
+  width: 4%;
+  height: 4%;
+}
+.mii-nose-medium {
+  width: 6%;
+  height: 6%;
+}
+.mii-nose-large {
+  width: 9%;
+  height: 9%;
+}
+.mii-nose-button {
+  width: 6.5%;
+  height: 6.5%;
+  border-radius: 50%;
+}
+.mii-nose-pointy {
+  width: 7%;
+  height: 7%;
+  border-radius: 0;
+  clip-path: polygon(50% 0%, 8% 100%, 92% 100%);
+}
+
+/* ---------------------------------------------------------------------- */
+/* Mouth */
+/* ---------------------------------------------------------------------- */
 .mii-mouth {
   position: absolute;
   bottom: 20%;
@@ -191,17 +547,217 @@
   border-radius: 0 0 14px 14px;
   background: #a85a4a;
 }
-.mii-face-happy .mii-mouth {
+.mii-mouth-smile {
   height: 11%;
   border-radius: 0 0 22px 22px;
 }
-.mii-face-surprised .mii-mouth {
+.mii-mouth-grin {
+  width: 30%;
+  height: 13%;
+  border-radius: 0 0 26px 26px;
+  box-shadow: inset 0 5px 0 -1px #fff;
+}
+.mii-mouth-smirk {
+  width: 20%;
+  height: 7%;
+  border-radius: 2px 0 20px 6px;
+  transform: translateX(-40%) rotate(-8deg);
+}
+.mii-mouth-surprised {
   width: 12%;
   height: 12%;
   border-radius: 50%;
 }
-.mii-face-cool .mii-mouth {
-  width: 16%;
-  height: 4%;
+.mii-mouth-frown {
+  height: 8%;
+  border-radius: 22px 22px 0 0;
+  bottom: 24%;
+}
+.mii-mouth-tongue {
+  height: 11%;
+  border-radius: 0 0 22px 22px;
+}
+.mii-mouth-tongue::after {
+  content: "";
+  position: absolute;
+  bottom: -35%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 55%;
+  height: 55%;
+  background: #d47a72;
+  border-radius: 0 0 10px 10px;
+}
+.mii-mouth-flat {
+  width: 20%;
+  height: 2.5%;
   border-radius: 2px;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Facial hair -- painted with var(--mii-hair) */
+/* ---------------------------------------------------------------------- */
+.mii-facial-hair {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--mii-hair);
+}
+.mii-facial-hair-none {
+  display: none;
+}
+.mii-facial-hair-mustache {
+  top: 62%;
+  width: 20%;
+  height: 4%;
+  border-radius: 40% 40% 30% 30%;
+}
+.mii-facial-hair-goatee {
+  top: 76%;
+  width: 14%;
+  height: 10%;
+  border-radius: 0 0 50% 50%;
+}
+.mii-facial-hair-beard {
+  top: 58%;
+  width: 46%;
+  height: 28%;
+  border-radius: 0 0 48% 48%;
+  opacity: 0.92;
+}
+.mii-facial-hair-soulpatch {
+  top: 78%;
+  width: 5%;
+  height: 5%;
+  border-radius: 50%;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Glasses -- two simple lens frames over the eyes */
+/* ---------------------------------------------------------------------- */
+.mii-glasses {
+  position: absolute;
+  top: 42%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60%;
+  height: 13%;
+}
+.mii-glasses-none {
+  display: none;
+}
+.mii-glasses::before,
+.mii-glasses::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  width: 38%;
+  height: 100%;
+  border: 2px solid #2a2a2e;
+  border-radius: 50%;
+  background: transparent;
+}
+.mii-glasses::before {
+  left: 0;
+}
+.mii-glasses::after {
+  right: 0;
+}
+.mii-glasses-square::before,
+.mii-glasses-square::after {
+  border-radius: 3px;
+}
+.mii-glasses-sunglasses::before,
+.mii-glasses-sunglasses::after {
+  background: #1a1a1a;
+  border-color: #1a1a1a;
+  border-radius: 5px;
+}
+.mii-glasses-star::before,
+.mii-glasses-star::after {
+  border: none;
+  background: #2a2a2e;
+  clip-path: polygon(
+    50% 0%,
+    61% 35%,
+    98% 35%,
+    68% 57%,
+    79% 91%,
+    50% 70%,
+    21% 91%,
+    32% 57%,
+    2% 35%,
+    39% 35%
+  );
+}
+
+/* ---------------------------------------------------------------------- */
+/* Hat -- sits above the hair, painted with var(--mii-hat-color) */
+/* ---------------------------------------------------------------------- */
+.mii-hat {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--mii-hat-color);
+}
+.mii-hat-none {
+  display: none;
+}
+.mii-hat-cap {
+  top: -16%;
+  width: 68%;
+  height: 24%;
+  border-radius: 50% 50% 6px 6px;
+}
+.mii-hat-cap::after {
+  content: "";
+  position: absolute;
+  bottom: 6%;
+  left: 68%;
+  width: 40%;
+  height: 22%;
+  background: var(--mii-hat-color);
+  border-radius: 0 0 60% 10%;
+}
+.mii-hat-beanie {
+  top: -12%;
+  width: 66%;
+  height: 28%;
+  border-radius: 50% 50% 30% 30%;
+  box-shadow: inset 0 -6px 0 -2px rgb(255 255 255 / 0.3);
+}
+.mii-hat-tophat {
+  top: -36%;
+  width: 48%;
+  height: 40%;
+  border-radius: 6px 6px 0 0;
+}
+.mii-hat-tophat::after {
+  content: "";
+  position: absolute;
+  bottom: -4%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 76%;
+  height: 10%;
+  background: var(--mii-hat-color);
+  border-radius: 4px;
+}
+.mii-hat-party {
+  top: -32%;
+  width: 46%;
+  height: 38%;
+  background: var(--mii-hat-color);
+  clip-path: polygon(50% 0%, 8% 100%, 92% 100%);
+}
+.mii-hat-party::after {
+  content: "";
+  position: absolute;
+  top: -8%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 22%;
+  height: 14%;
+  border-radius: 50%;
+  background: #f2f2f2;
 }

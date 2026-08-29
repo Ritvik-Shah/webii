@@ -6,7 +6,7 @@ export interface Channel {
 }
 
 export const CHANNELS: Channel[] = [
-  { id: "mii", title: "Mii Channel", accent: "#f4a300", status: "soon" },
+  { id: "mii", title: "Mii Channel", accent: "#f4a300", status: "ready" },
   { id: "target", title: "Shooting Range", accent: "#c43b3b", status: "ready" },
   { id: "tanks", title: "Tanks!", accent: "#5a7a3b", status: "ready" },
   { id: "charge", title: "Charge!", accent: "#c48a3b", status: "ready" },

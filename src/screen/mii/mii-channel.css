@@ -1,0 +1,179 @@
+.mii-channel-root {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 2vh 3vw;
+  box-sizing: border-box;
+  background: linear-gradient(160deg, #cdeeff 0%, #8fd4f5 45%, #4fb3e8 100%);
+  color: #16324a;
+  font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  overflow: hidden;
+}
+
+.mii-channel-root * {
+  box-sizing: border-box;
+}
+
+.mii-channel-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  flex: 0 0 auto;
+}
+
+.mii-channel-avatar {
+  filter: drop-shadow(0 10px 14px rgba(11, 61, 145, 0.25));
+  animation: mii-channel-sway 3.2s ease-in-out infinite;
+}
+
+@keyframes mii-channel-sway {
+  0%,
+  100% {
+    transform: rotate(-1.5deg);
+  }
+  50% {
+    transform: rotate(1.5deg);
+  }
+}
+
+.mii-channel-name {
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: #0b3d91;
+}
+
+.mii-channel-editing-badge {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #7a4fa0;
+  background: rgba(255, 255, 255, 0.7);
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+}
+
+.mii-channel-editor {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: min(92vw, 460px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.4rem;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 1rem;
+}
+
+.mii-channel-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 40px;
+  padding: 0.35rem 0.8rem;
+  border-radius: 0.6rem;
+  background: rgba(255, 255, 255, 0.6);
+  transition: background 0.12s ease, transform 0.12s ease;
+}
+
+.mii-channel-row-selected {
+  background: #ffffff;
+  transform: scale(1.02);
+  box-shadow: 0 0 0 2px #0b3d91, 0 4px 10px rgba(11, 61, 145, 0.2);
+}
+
+.mii-channel-row-label {
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.mii-channel-row-value {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #3b6bc4;
+  text-transform: capitalize;
+}
+
+.mii-channel-swatch {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid rgba(0, 0, 0, 0.2);
+}
+
+.mii-channel-roster {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 0.4rem;
+  overflow-x: auto;
+  max-width: 92vw;
+  padding: 0.2rem;
+}
+
+.mii-channel-roster-item {
+  flex: 0 0 auto;
+  border-radius: 0.5rem;
+  padding: 0.15rem;
+  opacity: 0.55;
+}
+
+.mii-channel-roster-active {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.7);
+  box-shadow: 0 0 0 2px #0b3d91;
+}
+
+.mii-channel-saved-flash {
+  position: fixed;
+  top: 10vh;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(11, 61, 145, 0.92);
+  color: #fff;
+  font-weight: 800;
+  padding: 0.5rem 1.2rem;
+  border-radius: 999px;
+  animation: mii-channel-flash-fade 1.4s ease-out forwards;
+  pointer-events: none;
+}
+
+@keyframes mii-channel-flash-fade {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 8px);
+  }
+  15% {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+  75% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.mii-channel-hint {
+  flex: 0 0 auto;
+  font-size: 0.72rem;
+  text-align: center;
+  color: rgba(22, 50, 74, 0.75);
+  max-width: 92vw;
+}
+
+.mii-channel-back-button {
+  flex: 0 0 auto;
+  min-height: 40px;
+  padding: 0 1.1rem;
+  border-radius: 999px;
+  background: transparent;
+  border: 2px solid rgba(22, 50, 74, 0.3);
+  color: #16324a;
+  font-weight: 700;
+}

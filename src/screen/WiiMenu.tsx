@@ -52,14 +52,14 @@ export function WiiMenu({ subscribe, onLaunch }: WiiMenuProps) {
     };
   }, []);
 
-  const { cursorRef, hoveredIndex } = usePointerGrid(subscribe, GRID_COLS, GRID_ROWS, launchChannel);
+  const { cursorRef, gridRef, hoveredIndex } = usePointerGrid(subscribe, GRID_COLS, GRID_ROWS, launchChannel);
 
   return (
     <div className="wii-menu">
       <header className="wii-menu-header">
         <span className="wii-logo">Webii</span>
       </header>
-      <div className="wii-grid">
+      <div className="wii-grid" ref={gridRef}>
         {CHANNELS.map((channel, index) => {
           const className = [
             "wii-tile",

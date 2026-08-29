@@ -15,6 +15,7 @@ import { Tanks } from "./games/Tanks";
 import { Charge } from "./games/Charge";
 import { NesUpload } from "./nes/NesUpload";
 import { NesGame1, NesGame2 } from "./nes/BundledGames";
+import { NdsChannel } from "./nds/NdsChannel";
 import type { GameProps } from "./games/types";
 
 const GAME_SCREENS: Record<string, ComponentType<GameProps>> = {
@@ -24,6 +25,7 @@ const GAME_SCREENS: Record<string, ComponentType<GameProps>> = {
   "nes-upload": NesUpload,
   "nes-1": NesGame1,
   "nes-2": NesGame2,
+  "nds-channel": NdsChannel,
 };
 
 type ScreenView =

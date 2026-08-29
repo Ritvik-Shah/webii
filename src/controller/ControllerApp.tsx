@@ -26,7 +26,12 @@ export default function ControllerApp() {
     onMessage,
   });
 
-  useMotionStream(permission === "granted" ? send : undefined);
+  const { recenter } = useMotionStream(permission === "granted" ? send : undefined);
+
+  const handleRecenter = useCallback(() => {
+    recenter();
+    send({ type: "recenter" });
+  }, [recenter, send]);
 
   if (permission !== "granted") {
     return <PermissionGate onGranted={() => setPermission("granted")} />;
@@ -38,6 +43,7 @@ export default function ControllerApp() {
       screenConnected={presence?.screenConnected ?? false}
       send={send}
       roomCode={roomCode}
+      onRecenter={handleRecenter}
     />
   );
 }

@@ -1,0 +1,225 @@
+/* Tennis mini-game -- all classes prefixed `tennis-` to stay scoped within
+   this global stylesheet. Original grass-court look, not a Nintendo asset. */
+
+.tennis-root {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  overflow: hidden;
+  background: linear-gradient(180deg, #1c7a3e 0%, #2fa350 45%, #37b85c 100%);
+  font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  color: #ffffff;
+  box-sizing: border-box;
+  padding: 1.5rem 1rem;
+}
+
+.tennis-root * {
+  box-sizing: border-box;
+}
+
+.tennis-scoreboard {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  background: rgba(0, 0, 0, 0.28);
+  border: 2px solid rgba(255, 255, 255, 0.55);
+  border-radius: 1rem;
+  padding: 0.75rem 1.75rem;
+  z-index: 5;
+}
+
+.tennis-score-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 4.5rem;
+}
+
+.tennis-score-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+
+.tennis-score-value {
+  font-size: 2.5rem;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.tennis-score-divider {
+  font-size: 1.75rem;
+  font-weight: 700;
+  opacity: 0.7;
+}
+
+.tennis-court {
+  position: relative;
+  flex: 1;
+  width: 100%;
+  max-width: 720px;
+  margin: 1.25rem 0;
+  border: 4px solid rgba(255, 255, 255, 0.9);
+  border-radius: 0.5rem;
+  background: linear-gradient(180deg, #2c9a4d 0%, #248445 100%);
+  overflow: hidden;
+}
+
+/* Court markings: a center service line and a couple of cross lines to
+   suggest perspective, all done with pseudo-elements/borders. */
+.tennis-court::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: rgba(255, 255, 255, 0.6);
+  transform: translateX(-50%);
+}
+
+.tennis-court::after {
+  content: "";
+  position: absolute;
+  left: 6%;
+  right: 6%;
+  top: 62%;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.tennis-net {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  bottom: 14%;
+  height: 3px;
+  background: repeating-linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.9) 0px,
+    rgba(255, 255, 255, 0.9) 6px,
+    transparent 6px,
+    transparent 12px
+  );
+  z-index: 2;
+}
+
+/* The ball starts small and far away (top of the court) and grows/moves
+   toward the bottom as it "approaches" the player. Duration is set inline
+   per-ball via style.animationDuration. */
+.tennis-ball {
+  position: absolute;
+  left: 50%;
+  top: 8%;
+  width: 14px;
+  height: 14px;
+  margin-left: -7px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #f4ff6a, #c7e600 65%, #9cbf00 100%);
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.35);
+  animation-name: tennis-approach;
+  animation-timing-function: cubic-bezier(0.35, 0, 0.65, 1);
+  animation-fill-mode: forwards;
+  z-index: 3;
+}
+
+@keyframes tennis-approach {
+  0% {
+    top: 8%;
+    width: 10px;
+    height: 10px;
+    margin-left: -5px;
+    opacity: 0.9;
+  }
+  100% {
+    top: 78%;
+    width: 46px;
+    height: 46px;
+    margin-left: -23px;
+    opacity: 1;
+  }
+}
+
+.tennis-flash {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  animation: tennis-flash-fade 350ms ease-out forwards;
+}
+
+.tennis-flash-hit {
+  background: rgba(80, 255, 130, 0.35);
+}
+
+.tennis-flash-miss {
+  background: rgba(255, 70, 60, 0.4);
+}
+
+@keyframes tennis-flash-fade {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+.tennis-hint {
+  font-size: 1.05rem;
+  font-weight: 600;
+  text-align: center;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 0.75rem;
+  padding: 0.5rem 1rem;
+  z-index: 5;
+}
+
+.tennis-footer {
+  font-size: 0.85rem;
+  opacity: 0.8;
+  text-align: center;
+  z-index: 5;
+}
+
+.tennis-result {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 10;
+  text-align: center;
+  padding: 1rem;
+}
+
+.tennis-result-win,
+.tennis-result-lose {
+  font-size: 3rem;
+  font-weight: 800;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.tennis-result-win {
+  color: #ffe94d;
+}
+
+.tennis-result-lose {
+  color: #ff8a80;
+}
+
+.tennis-result-sub {
+  font-size: 1.1rem;
+  font-weight: 500;
+  opacity: 0.9;
+}

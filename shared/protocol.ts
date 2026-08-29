@@ -13,10 +13,16 @@ export interface PresenceMessage {
 }
 
 export interface PointerMessage {
-  /** Relative cursor delta derived from device orientation, in [-1, 1] range per axis. */
+  /** Offset from the phone's calibrated aim center, normalized so ~1.0 unit
+   * corresponds to roughly a 90-degree tilt. Absolute, not a delta -- the
+   * phone always reports "how far am I currently tilted from center", and
+   * the screen maps that straight onto cursor position, like pointing a
+   * real Wiimote rather than dragging a trackpad. Positive ox = tilted
+   * right, positive oy = tilted down. Not clamped; the screen clamps when
+   * mapping to a position. */
   type: "pointer";
-  dx: number;
-  dy: number;
+  ox: number;
+  oy: number;
 }
 
 export interface RecenterMessage {

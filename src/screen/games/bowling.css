@@ -1,0 +1,219 @@
+/* Bowling mini-game -- warm wood-lane theme. All classes are prefixed
+   `bowling-` so this global-scope stylesheet can't collide with any other
+   game or the app shell. */
+
+.bowling-root {
+  width: 100%;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding: 3vh 4vw;
+  box-sizing: border-box;
+  background: linear-gradient(180deg, #3a2415 0%, #6b4423 12%, #b5793f 45%, #d9a86c 75%, #f0d5a8 100%);
+  color: #2b1a0e;
+  font-family: "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
+  overflow: hidden;
+  position: relative;
+}
+
+.bowling-root::before {
+  /* Subtle wood-grain streaks. */
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.05) 0px,
+    rgba(255, 255, 255, 0.05) 2px,
+    transparent 2px,
+    transparent 14px
+  );
+  pointer-events: none;
+}
+
+.bowling-scoreboard {
+  display: flex;
+  gap: 8vw;
+  background: rgba(43, 26, 14, 0.85);
+  border: 3px solid #f0d5a8;
+  border-radius: 16px;
+  padding: 1.2rem 3rem;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  z-index: 1;
+}
+
+.bowling-scoreboard-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.bowling-scoreboard-label {
+  font-size: clamp(0.9rem, 1.6vw, 1.2rem);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #e8c68e;
+  opacity: 0.85;
+}
+
+.bowling-scoreboard-value {
+  font-size: clamp(2rem, 5vw, 3.2rem);
+  font-weight: 800;
+  color: #fff6e6;
+  line-height: 1.15;
+}
+
+.bowling-lane {
+  flex: 1;
+  width: min(38vw, 340px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding-top: 3vh;
+  z-index: 1;
+}
+
+.bowling-lane::before {
+  /* The lane itself: a long pale wood strip running toward the pins. */
+  content: "";
+  position: absolute;
+  top: 12vh;
+  bottom: 14vh;
+  width: min(22vw, 200px);
+  background: repeating-linear-gradient(
+      180deg,
+      rgba(120, 74, 30, 0.18) 0px,
+      rgba(120, 74, 30, 0.18) 3px,
+      transparent 3px,
+      transparent 22px
+    ),
+    linear-gradient(180deg, #e8c589 0%, #f6dfae 60%, #fff0d2 100%);
+  border-left: 2px solid rgba(80, 48, 18, 0.4);
+  border-right: 2px solid rgba(80, 48, 18, 0.4);
+  border-radius: 6px;
+  z-index: -1;
+}
+
+.bowling-pins {
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 1rem 1.5rem;
+  border-radius: 12px;
+  transition: background-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.bowling-pins-strike {
+  background: radial-gradient(circle, rgba(255, 214, 90, 0.55) 0%, rgba(255, 214, 90, 0) 70%);
+  box-shadow: 0 0 40px 10px rgba(255, 214, 90, 0.4);
+  animation: bowling-strike-flash 0.6s ease-in-out infinite;
+}
+
+.bowling-pin-row {
+  display: flex;
+  gap: 0.6rem;
+}
+
+.bowling-pin {
+  width: clamp(1.1rem, 2.4vw, 1.8rem);
+  height: clamp(1.6rem, 3.4vw, 2.6rem);
+  background: linear-gradient(180deg, #fff8ec 0%, #f0dcb8 55%, #e2c79a 100%);
+  border: 2px solid #b98a4c;
+  border-radius: 45% 45% 30% 30% / 55% 55% 25% 25%;
+  box-shadow: inset 0 -3px 4px rgba(150, 100, 40, 0.35), 0 2px 3px rgba(0, 0, 0, 0.25);
+  transition: transform 0.35s ease, opacity 0.35s ease;
+}
+
+.bowling-pin-knocked {
+  opacity: 0.25;
+  transform: rotate(85deg) translateY(10px) scale(0.85);
+}
+
+.bowling-arrow {
+  margin-top: 1.2rem;
+  width: 0;
+  height: 0;
+  border-left: 14px solid transparent;
+  border-right: 14px solid transparent;
+  border-bottom: 22px solid rgba(43, 26, 14, 0.35);
+}
+
+.bowling-result {
+  min-height: 14vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+}
+
+.bowling-status {
+  font-size: clamp(1.6rem, 4.5vw, 2.8rem);
+  font-weight: 800;
+  color: #fff6e6;
+  text-shadow: 0 3px 8px rgba(0, 0, 0, 0.4);
+  text-align: center;
+}
+
+.bowling-result-strike .bowling-status {
+  color: #ffd65a;
+  animation: bowling-strike-pop 0.5s ease;
+}
+
+.bowling-final {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  background: rgba(43, 26, 14, 0.85);
+  border: 3px solid #f0d5a8;
+  border-radius: 18px;
+  padding: 1.4rem 3rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.bowling-final-label {
+  font-size: clamp(1.1rem, 2.2vw, 1.5rem);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #e8c68e;
+}
+
+.bowling-final-score {
+  font-size: clamp(3rem, 8vw, 5rem);
+  font-weight: 900;
+  color: #fff6e6;
+}
+
+.bowling-hint {
+  font-size: clamp(0.85rem, 1.6vw, 1.1rem);
+  color: rgba(255, 246, 230, 0.75);
+  text-align: center;
+  z-index: 1;
+}
+
+@keyframes bowling-strike-flash {
+  0%, 100% {
+    box-shadow: 0 0 40px 10px rgba(255, 214, 90, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 60px 18px rgba(255, 214, 90, 0.7);
+  }
+}
+
+@keyframes bowling-strike-pop {
+  0% {
+    transform: scale(0.7);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.15);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
+}

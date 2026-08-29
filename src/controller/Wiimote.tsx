@@ -5,9 +5,10 @@ interface WiimoteProps {
   screenConnected: boolean;
   send: (msg: object) => void;
   roomCode: string;
+  onRecenter: () => void;
 }
 
-export default function Wiimote({ connected, screenConnected, send, roomCode }: WiimoteProps) {
+export default function Wiimote({ connected, screenConnected, send, roomCode, onRecenter }: WiimoteProps) {
   function press(button: ButtonName) {
     send({ type: "button", button, state: "down" });
     if (navigator.vibrate) navigator.vibrate(15);
@@ -18,7 +19,7 @@ export default function Wiimote({ connected, screenConnected, send, roomCode }: 
   }
 
   function recenter() {
-    send({ type: "recenter" });
+    onRecenter();
     if (navigator.vibrate) navigator.vibrate([10, 30, 10]);
   }
 
@@ -83,7 +84,10 @@ export default function Wiimote({ connected, screenConnected, send, roomCode }: 
           Recenter
         </button>
       </div>
-      <p className="wiimote-hint">Point at the screen and tap A to select. Tap Recenter if the cursor drifts.</p>
+      <p className="wiimote-hint">
+        Point your phone at the screen like a remote, tap A to select. If it's off, tap Recenter while pointing
+        at the middle of the screen.
+      </p>
     </div>
   );
 }

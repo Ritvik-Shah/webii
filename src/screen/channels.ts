@@ -5,13 +5,11 @@ export interface Channel {
   status: "ready" | "soon";
 }
 
-// All channels are "soon" for now. A later phase wires specific channels to
-// "ready" mini-games and adds routing from the tile to the game view.
 export const CHANNELS: Channel[] = [
   { id: "mii", title: "Mii Channel", accent: "#f4a300", status: "soon" },
-  { id: "tennis", title: "Wii Sports: Tennis", accent: "#3bb54a", status: "soon" },
-  { id: "bowling", title: "Wii Sports: Bowling", accent: "#3b82c4", status: "soon" },
-  { id: "sword", title: "Sword Duel", accent: "#c43b3b", status: "soon" },
+  { id: "tennis", title: "Wii Sports: Tennis", accent: "#3bb54a", status: "ready" },
+  { id: "bowling", title: "Wii Sports: Bowling", accent: "#3b82c4", status: "ready" },
+  { id: "sword", title: "Sword Duel", accent: "#c43b3b", status: "ready" },
   { id: "photo", title: "Photo Channel", accent: "#f4a300", status: "soon" },
   { id: "weather", title: "Forecast Channel", accent: "#3bb5d0", status: "soon" },
   { id: "news", title: "News Channel", accent: "#c43bb0", status: "soon" },

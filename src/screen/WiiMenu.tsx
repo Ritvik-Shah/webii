@@ -7,13 +7,14 @@ import { playHoverTick, playLaunchChime, playButtonBlip } from "../lib/sound";
 interface WiiMenuProps {
   send: (msg: object) => void;
   subscribe: (fn: (msg: ControllerMessage) => void) => () => void;
+  onLaunch: (channelId: string) => void;
 }
 
 const GRID_COLS = 4;
 const GRID_ROWS = 3;
 
-/** Multiplies incoming pointer dx/dy before adding to the cursor position ref. */
-const POINTER_SPEED = 55;
+/** Screen-percent moved per normalized pointer offset unit (~90 degrees of tilt). */
+const POINTER_SENSITIVITY = 100;
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
@@ -25,7 +26,7 @@ function indexForPosition(x: number, y: number) {
   return row * GRID_COLS + col;
 }
 
-export function WiiMenu({ subscribe }: WiiMenuProps) {
+export function WiiMenu({ subscribe, onLaunch }: WiiMenuProps) {
   const cursorRef = useRef<HTMLDivElement>(null);
   const positionRef = useRef({ x: 50, y: 50 });
   const hoveredIndexRef = useRef(indexForPosition(50, 50));
@@ -62,6 +63,7 @@ export function WiiMenu({ subscribe }: WiiMenuProps) {
       if (launchTimeoutRef.current) clearTimeout(launchTimeoutRef.current);
       launchTimeoutRef.current = setTimeout(() => {
         setLaunchingIndex(null);
+        if (channel.status === "ready") onLaunch(channel.id);
       }, 650);
 
       if (channel.status !== "ready") {
@@ -76,9 +78,8 @@ export function WiiMenu({ subscribe }: WiiMenuProps) {
     function handler(msg: ControllerMessage) {
       switch (msg.type) {
         case "pointer": {
-          const { x, y } = positionRef.current;
-          const nextX = clamp(x + msg.dx * POINTER_SPEED, 0, 100);
-          const nextY = clamp(y + msg.dy * POINTER_SPEED, 0, 100);
+          const nextX = clamp(50 + msg.ox * POINTER_SENSITIVITY, 0, 100);
+          const nextY = clamp(50 + msg.oy * POINTER_SENSITIVITY, 0, 100);
           applyPosition(nextX, nextY);
           break;
         }
@@ -105,7 +106,7 @@ export function WiiMenu({ subscribe }: WiiMenuProps) {
     }
 
     return subscribe(handler);
-  }, [subscribe]);
+  }, [subscribe, onLaunch]);
 
   return (
     <div className="wii-menu">

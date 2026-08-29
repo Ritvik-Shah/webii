@@ -1,7 +1,10 @@
 import type { ControllerMessage } from "../../../shared/protocol";
+import type { Mii } from "../mii/Mii";
 
-/** Every mini-game gets the same three things: a way to talk to the phone,
- * a way to listen to it, and a way to hand control back to the Wii Menu. */
+/** Every mini-game gets the same things: a way to talk to the phone, a way
+ * to listen to it, a way to hand control back to the Wii Menu, and the
+ * player's chosen Mii (picked on the Mii Select screen before the game
+ * mounts) to render in-scene. */
 export interface GameProps {
   send: (msg: object) => void;
   subscribe: (fn: (msg: ControllerMessage) => void) => () => void;
@@ -10,4 +13,8 @@ export interface GameProps {
    * but that's handled centrally in ScreenApp -- games don't need to listen
    * for it themselves. */
   onExit: () => void;
+  mii: Mii;
+  /** Set only for games with a lane-select step before play (currently just
+   * Bowling). 1-indexed lane number, purely presentational for now. */
+  lane?: number;
 }

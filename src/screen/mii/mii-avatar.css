@@ -1,0 +1,207 @@
+.mii-avatar {
+  position: relative;
+  width: var(--mii-size);
+  height: calc(var(--mii-size) * 1.4);
+  flex-shrink: 0;
+}
+
+.mii-body {
+  position: absolute;
+  top: 38%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 58%;
+  height: 34%;
+  border-radius: 30% 30% 22% 22%;
+  background: var(--mii-shirt);
+  box-shadow: inset 0 -6px 10px rgb(0 0 0 / 0.12);
+}
+
+.mii-legs {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 46%;
+  height: 20%;
+  display: flex;
+  justify-content: space-between;
+}
+.mii-legs::before,
+.mii-legs::after {
+  content: "";
+  width: 42%;
+  height: 100%;
+  background: #4a4a52;
+  border-radius: 5px;
+}
+
+.mii-arm {
+  position: absolute;
+  top: 40%;
+  width: 13%;
+  height: 30%;
+  border-radius: 40%;
+  background: var(--mii-skin);
+  transform-origin: 50% 8%;
+  box-shadow: inset 0 -4px 6px rgb(0 0 0 / 0.1);
+}
+.mii-arm-left {
+  left: 8%;
+  transform: rotate(10deg);
+}
+.mii-arm-right {
+  right: 8%;
+  transform: rotate(-10deg);
+}
+
+.mii-pose-bowl-swing .mii-arm-right {
+  animation: mii-bowl-swing 900ms ease-in-out 1;
+}
+@keyframes mii-bowl-swing {
+  0% {
+    transform: rotate(-10deg);
+  }
+  30% {
+    transform: rotate(75deg);
+  }
+  68% {
+    transform: rotate(-85deg);
+  }
+  100% {
+    transform: rotate(-10deg);
+  }
+}
+
+.mii-pose-tennis-swing .mii-arm-right {
+  animation: mii-tennis-swing 380ms ease-out 1;
+}
+@keyframes mii-tennis-swing {
+  0% {
+    transform: rotate(65deg);
+  }
+  55% {
+    transform: rotate(-75deg);
+  }
+  100% {
+    transform: rotate(-10deg);
+  }
+}
+
+.mii-pose-sword-ready .mii-arm-right {
+  top: 18%;
+  transform: rotate(-100deg);
+}
+
+.mii-head {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 54%;
+  height: 38%;
+  border-radius: 50%;
+  background: var(--mii-skin);
+  box-shadow: inset 0 -6px 8px rgb(0 0 0 / 0.08);
+}
+
+.mii-hair {
+  position: absolute;
+  top: -8%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 62%;
+  height: 32%;
+  border-radius: 50% 50% 0 0;
+  background: var(--mii-hair);
+}
+.mii-hair-bald {
+  display: none;
+}
+.mii-hair-long {
+  height: 58%;
+  border-radius: 50% 50% 35% 35%;
+}
+.mii-hair-ponytail {
+  height: 34%;
+}
+.mii-hair-ponytail::after {
+  content: "";
+  position: absolute;
+  top: 40%;
+  right: -18%;
+  width: 22%;
+  height: 55%;
+  border-radius: 40%;
+  background: var(--mii-hair);
+  transform: rotate(35deg);
+}
+.mii-hair-spiky {
+  height: 30%;
+  clip-path: polygon(
+    0% 100%,
+    8% 20%,
+    20% 60%,
+    32% 5%,
+    46% 55%,
+    58% 0%,
+    70% 55%,
+    82% 10%,
+    94% 55%,
+    100% 100%
+  );
+}
+
+.mii-face {
+  position: absolute;
+  inset: 0;
+}
+.mii-eye {
+  position: absolute;
+  top: 46%;
+  width: 10%;
+  height: 10%;
+  border-radius: 50%;
+  background: #2a2a2e;
+}
+.mii-eye-left {
+  left: 26%;
+}
+.mii-eye-right {
+  right: 26%;
+}
+.mii-face-cool .mii-eye {
+  height: 4%;
+  top: 49%;
+  border-radius: 2px;
+}
+.mii-face-surprised .mii-eye {
+  width: 13%;
+  height: 13%;
+  top: 42%;
+}
+
+.mii-mouth {
+  position: absolute;
+  bottom: 20%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 22%;
+  height: 6%;
+  border-radius: 0 0 14px 14px;
+  background: #a85a4a;
+}
+.mii-face-happy .mii-mouth {
+  height: 11%;
+  border-radius: 0 0 22px 22px;
+}
+.mii-face-surprised .mii-mouth {
+  width: 12%;
+  height: 12%;
+  border-radius: 50%;
+}
+.mii-face-cool .mii-mouth {
+  width: 16%;
+  height: 4%;
+  border-radius: 2px;
+}

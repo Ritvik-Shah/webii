@@ -1,0 +1,72 @@
+.mii-select-root {
+  position: relative;
+  width: 100%;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 3vh 4vw 6vh;
+  background: linear-gradient(160deg, #cdeeff 0%, #8fd4f5 45%, #4fb3e8 100%);
+  overflow: hidden;
+}
+
+.mii-select-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25em;
+  margin-bottom: 3vh;
+  text-align: center;
+}
+.mii-select-title {
+  font-size: clamp(1.6rem, 3.4vw, 2.4rem);
+  font-weight: 800;
+  color: #0b3d91;
+}
+.mii-select-subtitle {
+  font-size: clamp(0.9rem, 1.6vw, 1.1rem);
+  color: #16324a;
+  opacity: 0.75;
+}
+
+.mii-select-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(120px, 1fr));
+  grid-template-rows: repeat(2, 1fr);
+  gap: 2.2vh 2vw;
+  width: min(900px, 92vw);
+  flex: 1;
+}
+
+.mii-select-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.6em;
+  padding: 1.2em 0.6em 1em;
+  background: rgb(255 255 255 / 0.92);
+  border-radius: 20px;
+  box-shadow: 0 6px 14px rgb(11 61 145 / 0.18);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.mii-select-tile-hover {
+  transform: scale(1.08) translateY(-4px);
+  box-shadow: 0 12px 22px rgb(11 61 145 / 0.28);
+  z-index: 2;
+}
+
+.mii-select-name {
+  font-weight: 700;
+  color: #16324a;
+  font-size: clamp(0.85rem, 1.4vw, 1rem);
+}
+
+.mii-select-hint {
+  margin-top: 3vh;
+  color: #16324a;
+  opacity: 0.75;
+  font-size: clamp(0.85rem, 1.4vw, 1rem);
+}

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties } from "re
 import "./bowling.css";
 import type { GameProps } from "./types";
 import { useSwing } from "./useSwing";
+import { MiiAvatar } from "../mii/MiiAvatar";
 
 // First-pass swing-detection tuning, unvalidated against a real device yet --
 // adjust after live playtesting. threshold is m/s^2 of linear acceleration,
@@ -165,7 +166,7 @@ interface RollRecord {
   pins: number;
 }
 
-export function Bowling({ subscribe, onExit }: GameProps) {
+export function Bowling({ subscribe, onExit, mii, lane }: GameProps) {
   const [phase, setPhase] = useState<Phase>("ready");
   const [rolls, setRolls] = useState<RollRecord[]>([]);
   const [lastPins, setLastPins] = useState<number | null>(null);
@@ -320,6 +321,8 @@ export function Bowling({ subscribe, onExit }: GameProps) {
         </div>
       </div>
 
+      {lane !== undefined && <div className="bowling-lane-label">Lane {lane}</div>}
+
       <div className="bowling-lane">
         <div className="bowling-track">
           <div className={`bowling-pins${isStrike && phase === "result" ? " bowling-pins-strike" : ""}`}>
@@ -362,6 +365,14 @@ export function Bowling({ subscribe, onExit }: GameProps) {
           </div>
           <div className="bowling-arrow" aria-hidden="true" />
           <div ref={ballElRef} className={`bowling-ball${ballVisible ? " bowling-ball-visible" : ""}`} aria-hidden="true" />
+        </div>
+        <div className="bowling-bowler">
+          <MiiAvatar
+            key={rollCountRef.current}
+            mii={mii}
+            size={100}
+            pose={phase === "rolling" ? "bowl-swing" : "idle"}
+          />
         </div>
       </div>
 

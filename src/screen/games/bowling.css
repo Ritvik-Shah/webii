@@ -65,6 +65,17 @@
   line-height: 1.15;
 }
 
+.bowling-lane-label {
+  font-size: clamp(0.85rem, 1.6vw, 1.05rem);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #fff6e6;
+  opacity: 0.85;
+  margin-top: 0.6rem;
+  z-index: 1;
+}
+
 .bowling-lane {
   flex: 1;
   width: min(38vw, 340px);
@@ -194,6 +205,15 @@
 
 .bowling-ball-visible {
   opacity: 1;
+}
+
+/* The bowler's Mii, standing at the foul line (the near end of the lane,
+   opposite the pins) -- right where the ball's roll animation originates. */
+.bowling-bowler {
+  display: flex;
+  justify-content: center;
+  margin-top: 2rem;
+  z-index: 1;
 }
 
 .bowling-result {

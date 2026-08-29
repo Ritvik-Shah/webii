@@ -1,0 +1,95 @@
+.lane-select-root {
+  position: relative;
+  width: 100%;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 3vh 4vw 6vh;
+  background: linear-gradient(160deg, #cdeeff 0%, #8fd4f5 45%, #4fb3e8 100%);
+  overflow: hidden;
+}
+
+.lane-select-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25em;
+  margin-bottom: 3vh;
+  text-align: center;
+}
+.lane-select-title {
+  font-size: clamp(1.6rem, 3.4vw, 2.4rem);
+  font-weight: 800;
+  color: #0b3d91;
+}
+.lane-select-subtitle {
+  font-size: clamp(0.9rem, 1.6vw, 1.1rem);
+  color: #16324a;
+  opacity: 0.75;
+}
+
+.lane-select-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(120px, 1fr));
+  grid-template-rows: repeat(2, 1fr);
+  gap: 2.2vh 2vw;
+  width: min(700px, 92vw);
+  flex: 1;
+}
+
+.lane-select-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.6em;
+  padding: 1.2em 0.6em 1em;
+  background: rgb(255 255 255 / 0.92);
+  border-radius: 20px;
+  box-shadow: 0 6px 14px rgb(11 61 145 / 0.18);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.lane-select-tile-hover {
+  transform: scale(1.08) translateY(-4px);
+  box-shadow: 0 12px 22px rgb(11 61 145 / 0.28);
+  z-index: 2;
+}
+
+/* Small decorative strip suggesting a bowling lane, with a few pin-dots at
+   the far end -- just enough to read as "this is a lane," not a full scene. */
+.lane-select-strip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.3em;
+  width: 1.4em;
+  height: 3.6em;
+  padding-top: 0.4em;
+  background: linear-gradient(180deg, #f6dfae 0%, #e8c589 60%, #d9b878 100%);
+  border: 2px solid rgb(80 48 18 / 0.35);
+  border-radius: 4px;
+}
+
+.lane-select-pin-dot {
+  width: 0.4em;
+  height: 0.4em;
+  border-radius: 50%;
+  background: #b98a4c;
+}
+
+.lane-select-number {
+  font-weight: 800;
+  color: #0b3d91;
+  font-size: clamp(1.4rem, 2.4vw, 1.9rem);
+}
+
+.lane-select-hint {
+  margin-top: 3vh;
+  color: #16324a;
+  opacity: 0.75;
+  font-size: clamp(0.85rem, 1.4vw, 1rem);
+}

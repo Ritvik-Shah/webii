@@ -92,59 +92,59 @@
   padding: 0 8%;
 }
 
-/* Two simple silhouettes facing each other across the clash point --
-   suggestive of duelists without depicting any specific character. */
+/* Each duelist is now an actual rendered Mii (see MiiAvatar in
+   SwordDuel.tsx) rather than a CSS-only silhouette -- this wrapper just
+   handles arena positioning and ring-out knockback. It intentionally has no
+   width/height of its own: as a flex item with no explicit size it
+   shrink-wraps to the MiiAvatar's fixed --mii-size box, which is what all
+   the percentage-based child positioning below (blade, target-angle,
+   opponent's static blade) is anchored against. */
 .sword-duelist {
   position: relative;
-  width: 15%;
-  max-width: 90px;
-  aspect-ratio: 1 / 2.6;
   margin-bottom: 6%;
-  background: linear-gradient(180deg, #1b0a10 0%, #0c0407 100%);
-  border-radius: 40% 40% 10% 10% / 25% 25% 10% 10%;
-  opacity: 0.9;
   /* Ring-out knockback eases in with a slight overshoot -- a "shove", not a
      snap -- and compounds further toward the arena edge on the 2nd hit. */
   transition: transform 480ms cubic-bezier(0.34, 1.56, 0.64, 1), opacity 480ms ease;
 }
 
-.sword-duelist::after {
+.sword-mii-opponent {
+  /* Mirror the opponent's Mii (and its raised sword-ready arm) so the two
+     duelists visually face each other across the clash point instead of
+     both facing the same direction. */
+  transform: scaleX(-1);
+}
+
+.sword-duelist-opponent::after {
   /* the opponent's drawn blade, angled toward the center -- static, since
-     only the player's blade needs to live-track a real phone. */
+     only the player's blade needs to live-track a real phone. Anchored to
+     roughly where the mirrored Mii's raised hand ends up (see MiiAvatar's
+     sword-ready pose geometry in mii-avatar.css). */
   content: "";
   position: absolute;
-  top: 8%;
+  top: -62%;
+  left: -22%;
   width: 3px;
   height: 78%;
   background: linear-gradient(180deg, #f4e3e8, #b8a0a6 70%, transparent 100%);
   box-shadow: 0 0 6px rgba(244, 227, 232, 0.5);
   transform-origin: bottom center;
-}
-
-.sword-duelist-player {
-  transform: scaleX(1);
-}
-
-.sword-duelist-player::after {
-  /* the player's blade is now a real DOM element (.sword-blade-player) so
-     its rotation can be driven imperatively from phone orientation. */
-  content: none;
-}
-
-.sword-duelist-opponent::after {
-  left: -4px;
   transform: rotate(-28deg);
 }
 
 /* The player's live blade -- base pose is straight up; the motion-tracking
    effect in SwordDuel.tsx overwrites `transform: rotate(...)` on every
    `motion` tick to mirror the phone's real roll (gamma), continuously and
-   independent of clash phase. */
+   independent of clash phase. Anchored (via transform-origin: bottom center
+   + the top/right offsets below) to roughly where the Mii's raised hand
+   ends up in the sword-ready pose, so it reads as being held rather than
+   floating -- see MiiAvatar's sword-ready arm geometry in mii-avatar.css
+   (right arm top:18%, rotate(-100deg) from a 50%/8% origin, which works out
+   to a hand position a bit above and to the right of the Mii's box). */
 .sword-blade {
   position: absolute;
-  top: 8%;
+  top: -60%;
   width: 3px;
-  height: 78%;
+  height: 80%;
   background: linear-gradient(180deg, #f4e3e8, #b8a0a6 70%, transparent 100%);
   box-shadow: 0 0 6px rgba(244, 227, 232, 0.5);
   transform-origin: bottom center;
@@ -152,7 +152,7 @@
 }
 
 .sword-blade-player {
-  right: -4px;
+  right: -18%;
   transform: rotate(0deg);
 }
 
@@ -161,10 +161,10 @@
    Only shown while the reaction window is open. */
 .sword-target-angle {
   position: absolute;
-  top: 6%;
-  right: -4px;
+  top: -64%;
+  right: -18%;
   width: 4px;
-  height: 84%;
+  height: 86%;
   transform-origin: bottom center;
   background: repeating-linear-gradient(
     180deg,

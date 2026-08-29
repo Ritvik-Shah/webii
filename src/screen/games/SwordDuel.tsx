@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { ControllerMessage } from "../../../shared/protocol";
 import type { GameProps } from "./types";
 import { useSwing } from "./useSwing";
+import { MiiAvatar } from "../mii/MiiAvatar";
+import { MII_ROSTER } from "../mii/Mii";
 import "./sword.css";
 
 // First-pass swing-detection numbers -- not yet validated against a real
@@ -25,6 +27,16 @@ const BLADE_MAX_ANGLE = 75; // clamp the live blade's on-screen rotation to a le
 const TARGET_ANGLE_RANGE = 60; // target cut-angle randomized within +/-60deg of vertical
 const ANGLE_TOLERANCE_DEG = 28; // how close a swing's angle must land to the target for a clean hit
 
+// The Mii avatar's bounding-box width, in px -- matches the old CSS-only
+// silhouette's `max-width: 90px` so the ring-out shove distances (tuned in
+// sword.css as percentages of the duelist's own box width) still land in
+// roughly the same place without needing to be retuned.
+const MII_SIZE = 90;
+// A fixed roster pick for the opponent -- any single Mii works here, this
+// one's arbitrary (avoiding index 0 in case that ever becomes a "your Mii"
+// default elsewhere, though it likely doesn't matter for a duel opponent).
+const OPPONENT_MII = MII_ROSTER[1];
+
 type ClashPhase = "waiting" | "reactWindow" | "resolved";
 // "blocked" is distinct from "miss": the player swung inside the reaction
 // window (so it's not a timing failure) but at the wrong angle, so the
@@ -40,7 +52,7 @@ function randomTargetAngle() {
   return (Math.random() * 2 - 1) * TARGET_ANGLE_RANGE;
 }
 
-export function SwordDuel({ send: _send, subscribe, onExit }: GameProps) {
+export function SwordDuel({ send: _send, subscribe, onExit, mii }: GameProps) {
   const [playerRingouts, setPlayerRingouts] = useState(0);
   const [opponentRingouts, setOpponentRingouts] = useState(0);
   const [clashKey, setClashKey] = useState(0);
@@ -264,6 +276,10 @@ export function SwordDuel({ send: _send, subscribe, onExit }: GameProps) {
         <div
           className={`sword-duelist sword-duelist-player sword-duelist-shoved-${Math.min(opponentRingouts, 2)}`}
         >
+          {/* The player's actual chosen Mii, arm raised into the sword-ready
+              pose -- the live blade below is positioned to read as being
+              held in that raised hand. */}
+          <MiiAvatar mii={mii} pose="sword-ready" size={MII_SIZE} className="sword-mii" />
           {/* The player's live blade -- rotation is written imperatively by
               the motion-tracking effect above, not by React re-renders. */}
           <div ref={bladeRef} className="sword-blade sword-blade-player" />
@@ -277,7 +293,17 @@ export function SwordDuel({ send: _send, subscribe, onExit }: GameProps) {
         </div>
         <div
           className={`sword-duelist sword-duelist-opponent sword-duelist-shoved-${Math.min(playerRingouts, 2)}`}
-        />
+        >
+          {/* A fixed roster Mii stands in for the opponent, mirrored (via
+              CSS scaleX(-1) on sword-mii-opponent) so the two duelists
+              visually face each other across the arena. */}
+          <MiiAvatar
+            mii={OPPONENT_MII}
+            pose="sword-ready"
+            size={MII_SIZE}
+            className="sword-mii sword-mii-opponent"
+          />
+        </div>
 
         {!result && clashPhase === "waiting" && (
           <div className="sword-waiting">

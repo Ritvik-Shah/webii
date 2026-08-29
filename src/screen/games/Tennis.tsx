@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties } from "re
 import type { ControllerMessage } from "../../../shared/protocol";
 import type { GameProps } from "./types";
 import { useSwing } from "./useSwing";
+import { MiiAvatar } from "../mii/MiiAvatar";
 import "./tennis.css";
 
 // First-pass swing-detection numbers -- not yet validated against a real
@@ -130,9 +131,12 @@ function computeShotStyle(shot: ShotResult, t: number): CSSProperties {
   };
 }
 
-export function Tennis({ send: _send, subscribe, onExit }: GameProps) {
+export function Tennis({ send: _send, subscribe, onExit, mii }: GameProps) {
   const [playerScore, setPlayerScore] = useState(0);
   const [opponentScore, setOpponentScore] = useState(0);
+  // Bumped on every real swing attempt (not on an unswung miss) so the
+  // player's Mii replays its one-shot swing animation via a changing `key`.
+  const [swingTrigger, setSwingTrigger] = useState(0);
   const [approachMs, setApproachMs] = useState<number>(() => randomApproachMs());
   const [ballKey, setBallKey] = useState(0);
   const [feedback, setFeedback] = useState<Feedback>(null);
@@ -226,6 +230,7 @@ export function Tennis({ send: _send, subscribe, onExit }: GameProps) {
       if (resolvedRef.current) return;
       resolvedRef.current = true;
       hitWindowRef.current = false;
+      setSwingTrigger((k) => k + 1);
 
       const isReturned = placement === "middle" && Math.random() < MIDDLE_RETURN_CHANCE;
       const outcome: ShotOutcome = isReturned ? "return-error" : "winner";
@@ -411,6 +416,14 @@ export function Tennis({ send: _send, subscribe, onExit }: GameProps) {
         {feedback === "return-error" && <div className="tennis-flash tennis-flash-return" />}
         {feedback === "miss" && <div className="tennis-flash tennis-flash-miss" />}
         {shotResult && <div className="tennis-shot-message">{describeShot(shotResult)}</div>}
+
+        <MiiAvatar
+          key={swingTrigger}
+          mii={mii}
+          pose={swingTrigger > 0 ? "tennis-swing" : "idle"}
+          size={84}
+          className="tennis-mii"
+        />
       </div>
 
       {!result && (

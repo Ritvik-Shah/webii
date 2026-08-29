@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import type { ControllerMessage } from "../../shared/protocol";
 import { CHANNELS } from "./channels";
 import { Cursor } from "./Cursor";
-import { playHoverTick, playLaunchChime, playButtonBlip } from "../lib/sound";
+import { usePointerGrid } from "./usePointerGrid";
+import { playLaunchChime, playButtonBlip } from "../lib/sound";
 
 interface WiiMenuProps {
   send: (msg: object) => void;
@@ -13,51 +14,18 @@ interface WiiMenuProps {
 const GRID_COLS = 4;
 const GRID_ROWS = 3;
 
-/** Screen-percent moved per normalized pointer offset unit (~90 degrees of tilt). */
-const POINTER_SENSITIVITY = 100;
-
-function clamp(value: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, value));
-}
-
-function indexForPosition(x: number, y: number) {
-  const col = clamp(Math.floor((x / 100) * GRID_COLS), 0, GRID_COLS - 1);
-  const row = clamp(Math.floor((y / 100) * GRID_ROWS), 0, GRID_ROWS - 1);
-  return row * GRID_COLS + col;
-}
-
 export function WiiMenu({ subscribe, onLaunch }: WiiMenuProps) {
-  const cursorRef = useRef<HTMLDivElement>(null);
-  const positionRef = useRef({ x: 50, y: 50 });
-  const hoveredIndexRef = useRef(indexForPosition(50, 50));
-  const aDownRef = useRef(false);
+  const [launchingIndex, setLaunchingIndex] = useState<number | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
   const launchTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
-  const [hoveredIndex, setHoveredIndex] = useState(hoveredIndexRef.current);
-  const [launchingIndex, setLaunchingIndex] = useState<number | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
-
-  useEffect(() => {
-    function applyPosition(x: number, y: number) {
-      positionRef.current = { x, y };
-      const el = cursorRef.current;
-      if (el) {
-        el.style.left = `${x}%`;
-        el.style.top = `${y}%`;
-      }
-      const nextIndex = indexForPosition(x, y);
-      if (nextIndex !== hoveredIndexRef.current) {
-        hoveredIndexRef.current = nextIndex;
-        setHoveredIndex(nextIndex);
-        playHoverTick();
-      }
-    }
-
-    function launchChannel(index: number) {
+  const launchChannel = useCallback(
+    (index: number) => {
       const channel = CHANNELS[index];
       if (!channel) return;
 
+      playButtonBlip();
       playLaunchChime();
       setLaunchingIndex(index);
       if (launchTimeoutRef.current) clearTimeout(launchTimeoutRef.current);
@@ -73,40 +41,18 @@ export function WiiMenu({ subscribe, onLaunch }: WiiMenuProps) {
           setToast(null);
         }, 1800);
       }
-    }
+    },
+    [onLaunch],
+  );
 
-    function handler(msg: ControllerMessage) {
-      switch (msg.type) {
-        case "pointer": {
-          const nextX = clamp(50 + msg.ox * POINTER_SENSITIVITY, 0, 100);
-          const nextY = clamp(50 + msg.oy * POINTER_SENSITIVITY, 0, 100);
-          applyPosition(nextX, nextY);
-          break;
-        }
-        case "recenter": {
-          applyPosition(50, 50);
-          break;
-        }
-        case "button": {
-          if (msg.button === "A") {
-            if (msg.state === "down" && !aDownRef.current) {
-              aDownRef.current = true;
-              playButtonBlip();
-              launchChannel(hoveredIndexRef.current);
-            } else if (msg.state === "up") {
-              aDownRef.current = false;
-            }
-          }
-          break;
-        }
-        default:
-          // motion / ping / pong / B / HOME: no-op for now.
-          break;
-      }
-    }
+  useEffect(() => {
+    return () => {
+      if (launchTimeoutRef.current) clearTimeout(launchTimeoutRef.current);
+      if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    };
+  }, []);
 
-    return subscribe(handler);
-  }, [subscribe, onLaunch]);
+  const { cursorRef, hoveredIndex } = usePointerGrid(subscribe, GRID_COLS, GRID_ROWS, launchChannel);
 
   return (
     <div className="wii-menu">

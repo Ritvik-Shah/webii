@@ -6,6 +6,10 @@ import { fetchNewRoomCode } from "../lib/roomCode";
 import { useRoomSocket } from "../lib/useRoomSocket";
 import { PairingScreen } from "./PairingScreen";
 import { WiiMenu } from "./WiiMenu";
+import { CHANNELS } from "./channels";
+import { MiiSelect } from "./mii/MiiSelect";
+import { LaneSelect } from "./mii/LaneSelect";
+import type { Mii } from "./mii/Mii";
 import { Tennis } from "./games/Tennis";
 import { Bowling } from "./games/Bowling";
 import { SwordDuel } from "./games/SwordDuel";
@@ -17,10 +21,21 @@ const GAME_SCREENS: Record<string, ComponentType<GameProps>> = {
   sword: SwordDuel,
 };
 
+// Bowling gets an extra lane-select step between choosing a Mii and playing,
+// matching the real game's flow. Every other channel goes straight from Mii
+// select into the game.
+const CHANNELS_WITH_LANE_SELECT = new Set(["bowling"]);
+
+type ScreenView =
+  | { kind: "menu" }
+  | { kind: "mii-select"; channelId: string }
+  | { kind: "lane-select"; channelId: string; mii: Mii }
+  | { kind: "game"; channelId: string; mii: Mii; lane?: number };
+
 export function ScreenApp() {
   const [roomCode, setRoomCode] = useState<string | null>(null);
   const [presence, setPresence] = useState<PresenceMessage | null>(null);
-  const [activeChannel, setActiveChannel] = useState<string | null>(null);
+  const [view, setView] = useState<ScreenView>({ kind: "menu" });
 
   const busRef = useRef<EventBus<ControllerMessage> | null>(null);
   if (!busRef.current) busRef.current = createEventBus<ControllerMessage>();
@@ -44,10 +59,11 @@ export function ScreenApp() {
       setPresence(msg);
       return;
     }
-    // HOME always returns to the Wii Menu, from any game, handled centrally
-    // here so individual games don't each need to listen for it.
+    // HOME always returns to the Wii Menu, from any view (game, Mii select,
+    // lane select), handled centrally here so individual screens don't each
+    // need to listen for it.
     if (msg.type === "button" && msg.button === "HOME" && msg.state === "down") {
-      setActiveChannel(null);
+      setView({ kind: "menu" });
     }
     busRef.current!.emit(msg);
   }, []);
@@ -58,19 +74,70 @@ export function ScreenApp() {
     onMessage,
   });
 
-  const ActiveGame = activeChannel ? GAME_SCREENS[activeChannel] : null;
+  const handleLaunch = useCallback((channelId: string) => {
+    setView({ kind: "mii-select", channelId });
+  }, []);
 
-  return (
-    <div className="screen-root">
-      {roomCode === null ? (
-        <div className="screen-loading">Loading Webii…</div>
-      ) : !presence?.controllerConnected ? (
-        <PairingScreen roomCode={roomCode} screenSocketConnected={connected} />
-      ) : ActiveGame ? (
-        <ActiveGame send={send} subscribe={busRef.current.subscribe} onExit={() => setActiveChannel(null)} />
-      ) : (
-        <WiiMenu send={send} subscribe={busRef.current.subscribe} onLaunch={setActiveChannel} />
-      )}
-    </div>
-  );
+  const handleMiiSelected = useCallback((mii: Mii) => {
+    setView((current) => {
+      if (current.kind !== "mii-select") return current;
+      const { channelId } = current;
+      if (CHANNELS_WITH_LANE_SELECT.has(channelId)) {
+        return { kind: "lane-select", channelId, mii };
+      }
+      return { kind: "game", channelId, mii };
+    });
+  }, []);
+
+  const handleLaneSelected = useCallback((lane: number) => {
+    setView((current) => {
+      if (current.kind !== "lane-select") return current;
+      return { kind: "game", channelId: current.channelId, mii: current.mii, lane };
+    });
+  }, []);
+
+  const subscribe = busRef.current.subscribe;
+
+  const renderMain = () => {
+    if (roomCode === null) {
+      return <div className="screen-loading">Loading Webii…</div>;
+    }
+    if (!presence?.controllerConnected) {
+      return <PairingScreen roomCode={roomCode} screenSocketConnected={connected} />;
+    }
+
+    switch (view.kind) {
+      case "menu":
+        return <WiiMenu send={send} subscribe={subscribe} onLaunch={handleLaunch} />;
+      case "mii-select": {
+        const channel = CHANNELS.find((c) => c.id === view.channelId);
+        return (
+          <MiiSelect
+            subscribe={subscribe}
+            channelTitle={channel?.title ?? "the game"}
+            onSelect={handleMiiSelected}
+          />
+        );
+      }
+      case "lane-select":
+        return <LaneSelect subscribe={subscribe} onSelect={handleLaneSelected} />;
+      case "game": {
+        const GameScreen = GAME_SCREENS[view.channelId];
+        if (!GameScreen) return null;
+        return (
+          <GameScreen
+            send={send}
+            subscribe={subscribe}
+            onExit={() => setView({ kind: "menu" })}
+            mii={view.mii}
+            lane={view.lane}
+          />
+        );
+      }
+      default:
+        return null;
+    }
+  };
+
+  return <div className="screen-root">{renderMain()}</div>;
 }

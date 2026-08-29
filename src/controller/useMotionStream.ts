@@ -24,7 +24,7 @@ const DEGREES_PER_UNIT = 90;
 
 // Flip either of these to -1 if left/right or up/down ever feels backwards
 // after live testing -- cheap to tune without touching the math below.
-const X_SIGN = 1;
+const X_SIGN = -1;
 const Y_SIGN = 1;
 
 interface MotionStreamHandle {

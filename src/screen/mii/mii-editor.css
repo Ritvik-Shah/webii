@@ -1,0 +1,165 @@
+.mii-editor-root {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 2vh 3vw;
+  box-sizing: border-box;
+  background: linear-gradient(160deg, #cdeeff 0%, #8fd4f5 45%, #4fb3e8 100%);
+  color: #16324a;
+  font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  overflow: hidden;
+}
+
+.mii-editor-root * {
+  box-sizing: border-box;
+}
+
+.mii-editor-stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+/* Close-up framing, matching the real Mii editor's head-and-shoulders shot
+   rather than a full-body view -- crops the taller full-body MiiAvatar down
+   to roughly its head/upper-body region via a shorter overflow:hidden box. */
+.mii-editor-preview-crop {
+  position: relative;
+  width: 300px;
+  height: 230px;
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.35);
+  border-radius: 1.5rem;
+  box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.6);
+}
+
+.mii-editor-preview-avatar {
+  margin-top: 6px;
+  filter: drop-shadow(0 10px 14px rgba(11, 61, 145, 0.2));
+}
+
+/* Small reference thumbnail of the whole character, corner-docked -- the
+   "Model" callout in the real editor showed a template to copy from; ours
+   shows the current full Mii while the main view is zoomed on the head. */
+.mii-editor-model {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  background: rgba(255, 255, 255, 0.85);
+  border-radius: 0.75rem;
+  padding: 0.35rem 0.5rem;
+  box-shadow: 0 4px 10px rgba(11, 61, 145, 0.2);
+}
+
+.mii-editor-model-caption {
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: #3b6bc4;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.mii-editor-category-bar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.mii-editor-arrow {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.75);
+  color: #0b3d91;
+  font-size: 1.4rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.mii-editor-category-label {
+  min-width: 160px;
+  text-align: center;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #0b3d91;
+}
+
+.mii-editor-category-value {
+  font-weight: 600;
+  color: #3b6bc4;
+}
+
+/* The icon palette -- a horizontal scroll strip of small head previews, one
+   per option for the active category, each rendering the actual Mii with
+   that option applied (not an abstract label) so picking is visual, same
+   as the real Mii Channel's icon-based feature pickers. */
+.mii-editor-palette {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 0.6rem;
+  overflow-x: auto;
+  max-width: 94vw;
+  padding: 0.5rem 0.75rem;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 1rem;
+}
+
+.mii-editor-palette-item {
+  flex: 0 0 auto;
+  padding: 3px;
+  border-radius: 0.75rem;
+  background: rgba(255, 255, 255, 0.5);
+  transition: transform 0.12s ease, background 0.12s ease;
+}
+
+.mii-editor-palette-item-selected {
+  background: #ffffff;
+  transform: scale(1.1);
+  box-shadow: 0 0 0 3px #4fd67a, 0 4px 10px rgba(11, 61, 145, 0.25);
+}
+
+.mii-editor-palette-crop {
+  width: 66px;
+  height: 62px;
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  border-radius: 0.6rem;
+}
+
+.mii-editor-saved-flash {
+  position: fixed;
+  top: 10vh;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(79, 214, 122, 0.95);
+  color: #0b1a10;
+  font-weight: 800;
+  padding: 0.5rem 1.2rem;
+  border-radius: 999px;
+  pointer-events: none;
+}
+
+.mii-editor-hint {
+  flex: 0 0 auto;
+  font-size: 0.7rem;
+  text-align: center;
+  color: rgba(22, 50, 74, 0.75);
+  max-width: 94vw;
+}

@@ -16,6 +16,9 @@
   color: #ffffff;
   box-sizing: border-box;
   padding: 1.5rem 1rem;
+  /* Lets .tennis-court's rotateX below read as "looking down at the court"
+     instead of a flat skew. */
+  perspective: 1200px;
 }
 
 .tennis-root * {
@@ -70,6 +73,12 @@
   border-radius: 0.5rem;
   background: linear-gradient(180deg, #2c9a4d 0%, #248445 100%);
   overflow: hidden;
+  /* Subtle tabletop tilt so the court reads as a playable-angle surface
+     rather than a flat poster. Kept mild to avoid clipping/overlap issues
+     with the absolutely-positioned children. */
+  transform: rotateX(6deg);
+  transform-origin: center bottom;
+  box-shadow: 0 22px 40px rgba(0, 0, 0, 0.35);
 }
 
 /* Court markings: a center service line and a couple of cross lines to
@@ -109,6 +118,53 @@
     transparent 12px
   );
   z-index: 2;
+}
+
+/* Net posts -- small caps at either end so the net reads as strung between
+   two posts rather than a floating dashed line. */
+.tennis-net::before,
+.tennis-net::after {
+  content: "";
+  position: absolute;
+  top: -5px;
+  width: 3px;
+  height: 13px;
+  background: rgba(255, 255, 255, 0.85);
+  border-radius: 1px;
+}
+
+.tennis-net::before {
+  left: -3px;
+}
+
+.tennis-net::after {
+  right: -3px;
+}
+
+/* Target-zone guides on the opponent's side, marking where cross-court
+   (left) and down-the-line (right) shots land. Their left offsets mirror
+   LANDING_X in Tennis.tsx (22 / 78) -- keep them in sync. */
+.tennis-zone-line {
+  position: absolute;
+  top: 3%;
+  bottom: 42%;
+  width: 1px;
+  background: repeating-linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.4) 0px,
+    rgba(255, 255, 255, 0.4) 6px,
+    transparent 6px,
+    transparent 13px
+  );
+  z-index: 1;
+}
+
+.tennis-zone-line-left {
+  left: 22%;
+}
+
+.tennis-zone-line-right {
+  left: 78%;
 }
 
 /* The ball starts small and far away (top of the court) and grows/moves
@@ -159,6 +215,10 @@
   background: rgba(80, 255, 130, 0.35);
 }
 
+.tennis-flash-return {
+  background: rgba(255, 176, 40, 0.35);
+}
+
 .tennis-flash-miss {
   background: rgba(255, 70, 60, 0.4);
 }
@@ -168,6 +228,52 @@
     opacity: 1;
   }
   to {
+    opacity: 0;
+  }
+}
+
+/* The struck ball flying to its landing zone. Position/size come from
+   Tennis.tsx's computeShotStyle (per-frame, via rAF) -- this class only
+   carries the ball's look. Winner vs. return-error share the same ball
+   look; the outcome is communicated via the flash tint + message banner. */
+.tennis-shot {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #f4ff6a, #c7e600 65%, #9cbf00 100%);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+  z-index: 5;
+}
+
+.tennis-shot-message {
+  position: absolute;
+  top: 8%;
+  left: 50%;
+  z-index: 7;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 0.6rem;
+  padding: 0.4rem 1rem;
+  font-size: 1rem;
+  font-weight: 700;
+  white-space: nowrap;
+  text-align: center;
+  animation: tennis-message-fade 900ms ease-out forwards;
+}
+
+@keyframes tennis-message-fade {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -6px);
+  }
+  15% {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+  78% {
+    opacity: 1;
+  }
+  100% {
     opacity: 0;
   }
 }

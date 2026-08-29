@@ -74,6 +74,23 @@
   justify-content: flex-start;
   padding-top: 3vh;
   z-index: 1;
+  /* Foreshortened lane look: the track inside (pins + arrow + ball) gets a
+     slight rotateX so it reads as a floor receding away from the player. */
+  perspective: 700px;
+}
+
+/* Positioning context for the ball, kept as its own wrapper (rather than
+   putting position:relative on .bowling-lane itself) so the lane's ::before
+   background strip -- which is absolutely positioned against .bowling-root
+   on purpose -- doesn't shift when its containing block changes. */
+.bowling-track {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  --bowling-pin-unit: 1.4rem;
+  --bowling-travel: 42vh;
 }
 
 .bowling-lane::before {
@@ -105,6 +122,8 @@
   padding: 1rem 1.5rem;
   border-radius: 12px;
   transition: background-color 0.3s ease, box-shadow 0.3s ease;
+  transform: rotateX(6deg);
+  transform-origin: bottom center;
 }
 
 .bowling-pins-strike {
@@ -116,6 +135,9 @@
 .bowling-pin-row {
   display: flex;
   gap: 0.6rem;
+  /* Rows nearer the "far" end of the deck are scaled slightly down, a cheap
+     perspective cue set per-row from JS via --bowling-row-scale. */
+  transform: scale(var(--bowling-row-scale, 1));
 }
 
 .bowling-pin {
@@ -128,9 +150,13 @@
   transition: transform 0.35s ease, opacity 0.35s ease;
 }
 
+/* Knocked pins fall individually rather than instantly toggling opacity --
+   staggered per pin via --bowling-pin-fall-delay (distance from the ball's
+   impact point) and sent falling away from the ball via
+   --bowling-pin-fall-x, both set inline from Bowling.tsx per pin. */
 .bowling-pin-knocked {
-  opacity: 0.25;
-  transform: rotate(85deg) translateY(10px) scale(0.85);
+  animation: bowling-pin-fall 0.55s ease-in forwards;
+  animation-delay: var(--bowling-pin-fall-delay, 0ms);
 }
 
 .bowling-arrow {
@@ -140,6 +166,34 @@
   border-left: 14px solid transparent;
   border-right: 14px solid transparent;
   border-bottom: 22px solid rgba(43, 26, 14, 0.35);
+}
+
+/* The rolled ball itself -- position driven by --ball-x/--ball-y custom
+   properties, updated every animation frame directly on the element by
+   Bowling.tsx's rAF loop (not React state, to avoid a re-render per frame).
+   --ball-x is in the same "pin unit" space as the pins' x offsets; --ball-y
+   is roll progress from 0 (bowler's end) to 1 (pin deck). */
+.bowling-ball {
+  position: absolute;
+  left: 50%;
+  bottom: 0.6rem;
+  width: clamp(1rem, 2.4vw, 1.6rem);
+  height: clamp(1rem, 2.4vw, 1.6rem);
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #6b6bff 0%, #2b2b8f 55%, #14143f 100%);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.4);
+  opacity: 0;
+  transform: translate(
+    calc(-50% + var(--ball-x, 0) * var(--bowling-pin-unit)),
+    calc(var(--ball-y, 0) * -1 * var(--bowling-travel))
+  );
+  transition: opacity 0.15s ease;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.bowling-ball-visible {
+  opacity: 1;
 }
 
 .bowling-result {
@@ -193,6 +247,20 @@
   color: rgba(255, 246, 230, 0.75);
   text-align: center;
   z-index: 1;
+}
+
+@keyframes bowling-pin-fall {
+  0% {
+    transform: rotate(0deg) translate(0, 0) scale(1);
+    opacity: 1;
+  }
+  60% {
+    opacity: 0.6;
+  }
+  100% {
+    transform: rotate(95deg) translate(var(--bowling-pin-fall-x, 14px), 18px) scale(0.8);
+    opacity: 0.15;
+  }
 }
 
 @keyframes bowling-strike-flash {

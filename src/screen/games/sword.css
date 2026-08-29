@@ -64,6 +64,16 @@
   opacity: 0.6;
 }
 
+.sword-scoreboard-caption {
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  opacity: 0.55;
+  margin-top: 0.4rem;
+  z-index: 5;
+}
+
 /* ---------- Arena ---------- */
 
 .sword-arena {
@@ -93,10 +103,14 @@
   background: linear-gradient(180deg, #1b0a10 0%, #0c0407 100%);
   border-radius: 40% 40% 10% 10% / 25% 25% 10% 10%;
   opacity: 0.9;
+  /* Ring-out knockback eases in with a slight overshoot -- a "shove", not a
+     snap -- and compounds further toward the arena edge on the 2nd hit. */
+  transition: transform 480ms cubic-bezier(0.34, 1.56, 0.64, 1), opacity 480ms ease;
 }
 
 .sword-duelist::after {
-  /* the drawn blade, angled toward the center */
+  /* the opponent's drawn blade, angled toward the center -- static, since
+     only the player's blade needs to live-track a real phone. */
   content: "";
   position: absolute;
   top: 8%;
@@ -104,6 +118,7 @@
   height: 78%;
   background: linear-gradient(180deg, #f4e3e8, #b8a0a6 70%, transparent 100%);
   box-shadow: 0 0 6px rgba(244, 227, 232, 0.5);
+  transform-origin: bottom center;
 }
 
 .sword-duelist-player {
@@ -111,15 +126,87 @@
 }
 
 .sword-duelist-player::after {
-  right: -4px;
-  transform: rotate(28deg);
-  transform-origin: bottom center;
+  /* the player's blade is now a real DOM element (.sword-blade-player) so
+     its rotation can be driven imperatively from phone orientation. */
+  content: none;
 }
 
 .sword-duelist-opponent::after {
   left: -4px;
   transform: rotate(-28deg);
+}
+
+/* The player's live blade -- base pose is straight up; the motion-tracking
+   effect in SwordDuel.tsx overwrites `transform: rotate(...)` on every
+   `motion` tick to mirror the phone's real roll (gamma), continuously and
+   independent of clash phase. */
+.sword-blade {
+  position: absolute;
+  top: 8%;
+  width: 3px;
+  height: 78%;
+  background: linear-gradient(180deg, #f4e3e8, #b8a0a6 70%, transparent 100%);
+  box-shadow: 0 0 6px rgba(244, 227, 232, 0.5);
   transform-origin: bottom center;
+  will-change: transform;
+}
+
+.sword-blade-player {
+  right: -4px;
+  transform: rotate(0deg);
+}
+
+/* The target cut-angle indicator: a dashed guide line at the same anchor as
+   the player's blade, so matching angles is a direct visual overlap check.
+   Only shown while the reaction window is open. */
+.sword-target-angle {
+  position: absolute;
+  top: 6%;
+  right: -4px;
+  width: 4px;
+  height: 84%;
+  transform-origin: bottom center;
+  background: repeating-linear-gradient(
+    180deg,
+    rgba(120, 220, 255, 0.9) 0,
+    rgba(120, 220, 255, 0.9) 9px,
+    transparent 9px,
+    transparent 16px
+  );
+  box-shadow: 0 0 10px rgba(120, 220, 255, 0.55);
+  z-index: 3;
+  pointer-events: none;
+  animation: sword-target-in 180ms ease-out both;
+}
+
+@keyframes sword-target-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Lasting ring-out knockback -- pushes the hit side toward its edge of the
+   arena, further with each successive ring-out, distinct from the
+   momentary hit/miss flash. */
+.sword-duelist-player.sword-duelist-shoved-1 {
+  transform: translateX(-16%) rotate(-4deg);
+}
+
+.sword-duelist-player.sword-duelist-shoved-2 {
+  transform: translateX(-34%) rotate(-8deg);
+  opacity: 0.65;
+}
+
+.sword-duelist-opponent.sword-duelist-shoved-1 {
+  transform: translateX(16%) rotate(4deg);
+}
+
+.sword-duelist-opponent.sword-duelist-shoved-2 {
+  transform: translateX(34%) rotate(8deg);
+  opacity: 0.65;
 }
 
 /* ---------- Waiting state ---------- */
@@ -220,6 +307,10 @@
   background: radial-gradient(ellipse at 50% 50%, rgba(255, 175, 60, 0.55) 0%, rgba(220, 130, 20, 0.3) 60%, transparent 100%);
 }
 
+.sword-flash-blocked {
+  background: radial-gradient(ellipse at 50% 50%, rgba(120, 200, 255, 0.55) 0%, rgba(60, 150, 220, 0.3) 60%, transparent 100%);
+}
+
 @keyframes sword-flash-fade {
   from {
     opacity: 1;
@@ -274,6 +365,11 @@
 .sword-outcome-falsestart {
   color: #ffcf8a;
   text-shadow: 0 0 12px rgba(255, 175, 60, 0.5);
+}
+
+.sword-outcome-blocked {
+  color: #9adfff;
+  text-shadow: 0 0 12px rgba(120, 200, 255, 0.55);
 }
 
 /* ---------- Hint / footer ---------- */

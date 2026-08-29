@@ -85,8 +85,8 @@ export default function Wiimote({ connected, screenConnected, send, roomCode, on
         </button>
       </div>
       <p className="wiimote-hint">
-        Point your phone at the screen like a remote, tap A to select. If it's off, tap Recenter while pointing
-        at the middle of the screen.
+        Hold your phone upright like a remote and aim it at the screen -- swing your wrist left/right and up/down
+        to point, tap A to select. If it's off, tap Recenter while aiming at the middle of the screen.
       </p>
     </div>
   );

@@ -2,22 +2,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import "./target-practice.css";
 import type { GameProps } from "./types";
 import { useGameCanvas } from "./useGameCanvas";
-import { usePointerPosition, POINTER_SENSITIVITY } from "../usePointerGrid";
+import { usePointerPosition } from "../usePointerGrid";
 import { playButtonBlip, playLaunchChime } from "../../lib/sound";
 import { MiiAvatar } from "../mii/MiiAvatar";
 
 // ---------------------------------------------------------------------------
 // Tuning
 // ---------------------------------------------------------------------------
-
-const MAG_SIZE = 6;
-
-// Reload gesture: point the reticle well below the visible play area (the
-// unclamped equivalent of usePointerPosition's y, which clamps to 0-100 and
-// so can't tell us "how far past the bottom edge") and hold it there briefly
-// so a single noisy sample can't trigger an accidental refill.
-const RELOAD_Y_THRESHOLD = 120;
-const RELOAD_HOLD_MS = 500;
 
 const TARGET_POINTS = 100;
 const DUCK_POINTS = 400;
@@ -166,10 +157,6 @@ function playGunshot() {
   tone(80, 0, 0.09, 0.16, "sawtooth");
 }
 
-function playDryFire() {
-  tone(1400, 0, 0.03, 0.05, "square");
-}
-
 function playHitPop(isDuck: boolean) {
   if (isDuck) {
     tone(1318.5, 0, 0.1, 0.15, "triangle");
@@ -182,11 +169,6 @@ function playHitPop(isDuck: boolean) {
 function playDuckAlert() {
   tone(700, 0, 0.07, 0.11, "sine");
   tone(1000, 0.06, 0.09, 0.1, "sine");
-}
-
-function playReloadChime() {
-  tone(300, 0, 0.05, 0.12, "square");
-  tone(520, 0.06, 0.08, 0.12, "square");
 }
 
 // ---------------------------------------------------------------------------
@@ -224,12 +206,10 @@ interface World {
   score: number;
   combo: number;
   bestCombo: number;
-  magazine: number;
   stageElapsedMs: number;
   spawnCountdownMs: number;
   duckCountdownMs: number;
   muzzleFlashUntil: number;
-  reloadFlashUntil: number;
   popups: ScorePopup[];
 }
 
@@ -249,12 +229,10 @@ function createWorld(stageNumber: number): World {
     score: 0,
     combo: 0,
     bestCombo: 0,
-    magazine: MAG_SIZE,
     stageElapsedMs: 0,
     spawnCountdownMs: randomBetween(cfg.minSpawnIntervalMs, cfg.maxSpawnIntervalMs),
     duckCountdownMs: randomBetween(DUCK_MIN_INTERVAL_MS, DUCK_MAX_INTERVAL_MS),
     muzzleFlashUntil: 0,
-    reloadFlashUntil: 0,
     popups: [],
   };
 }
@@ -478,7 +456,7 @@ function drawPopups(ctx: CanvasRenderingContext2D, world: World, width: number, 
   ctx.globalAlpha = 1;
 }
 
-function drawReticle(ctx: CanvasRenderingContext2D, x: number, y: number, empty: boolean, flashActive: boolean) {
+function drawReticle(ctx: CanvasRenderingContext2D, x: number, y: number, flashActive: boolean) {
   const size = flashActive ? 26 : 22;
   ctx.save();
   ctx.translate(x, y);
@@ -488,7 +466,7 @@ function drawReticle(ctx: CanvasRenderingContext2D, x: number, y: number, empty:
     ctx.arc(0, 0, size * 1.6, 0, Math.PI * 2);
     ctx.fill();
   }
-  ctx.strokeStyle = empty ? "#e04b3f" : "#eafaf6";
+  ctx.strokeStyle = "#eafaf6";
   ctx.lineWidth = 3;
   ctx.beginPath();
   ctx.arc(0, 0, size, 0, Math.PI * 2);
@@ -506,13 +484,7 @@ function drawReticle(ctx: CanvasRenderingContext2D, x: number, y: number, empty:
   ctx.restore();
 }
 
-function drawHud(
-  ctx: CanvasRenderingContext2D,
-  world: World,
-  width: number,
-  reloadHoldProgress: number,
-  stageNumber: number,
-) {
+function drawHud(ctx: CanvasRenderingContext2D, world: World, width: number, stageNumber: number) {
   const cfg = STAGES[stageNumber - 1];
 
   // Score, top-left.
@@ -549,37 +521,6 @@ function drawHud(
   ctx.fillRect(width - 18 - barW, 46, barW, 8);
   ctx.fillStyle = "#7fd9c9";
   ctx.fillRect(width - 18 - barW, 46, barW * progress, 8);
-
-  // Ammo dots, bottom-center.
-  const dotR = 8;
-  const gap = 10;
-  const totalW = MAG_SIZE * (dotR * 2) + (MAG_SIZE - 1) * gap;
-  const startX = width / 2 - totalW / 2 + dotR;
-  for (let i = 0; i < MAG_SIZE; i++) {
-    ctx.beginPath();
-    ctx.arc(startX + i * (dotR * 2 + gap), 0, dotR, 0, Math.PI * 2);
-    ctx.fillStyle = i < world.magazine ? "#eafaf6" : "rgba(255,255,255,0.2)";
-    ctx.fill();
-  }
-
-  if (world.magazine <= 0) {
-    ctx.textAlign = "center";
-    ctx.fillStyle = Math.floor(performance.now() / 300) % 2 === 0 ? "#e04b3f" : "#ff8a7a";
-    ctx.font = "bold 18px 'Trebuchet MS', system-ui, sans-serif";
-    ctx.fillText("EMPTY -- AIM BELOW THE SCREEN TO RELOAD", width / 2, 0);
-  } else if (reloadHoldProgress > 0) {
-    ctx.textAlign = "center";
-    ctx.fillStyle = "#7fd9c9";
-    ctx.font = "16px 'Trebuchet MS', system-ui, sans-serif";
-    ctx.fillText("Reloading...", width / 2, 0);
-  }
-
-  if (performance.now() < world.reloadFlashUntil) {
-    ctx.textAlign = "center";
-    ctx.fillStyle = "#7fd9c9";
-    ctx.font = "bold 18px 'Trebuchet MS', system-ui, sans-serif";
-    ctx.fillText("RELOADED!", width / 2, 0);
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -608,7 +549,6 @@ export function TargetPractice({ send: _send, subscribe, onExit, mii }: GameProp
   const transitioningRef = useRef(false);
   const stageTimeoutRef = useRef<number | null>(null);
 
-  const reloadHoldStartRef = useRef<number | null>(null);
   const bDownRef = useRef(false);
   const oneDownRef = useRef(false);
   const lastSizeRef = useRef({ width: 0, height: 0 });
@@ -618,11 +558,6 @@ export function TargetPractice({ send: _send, subscribe, onExit, mii }: GameProp
   const fireShot = useCallback(() => {
     if (phaseRef.current !== "playing" || pausedRef.current) return;
     const world = worldRef.current;
-    if (world.magazine <= 0) {
-      playDryFire();
-      return;
-    }
-    world.magazine -= 1;
     const now = performance.now();
     world.muzzleFlashUntil = now + 90;
     playGunshot();
@@ -704,12 +639,10 @@ export function TargetPractice({ send: _send, subscribe, onExit, mii }: GameProp
       drawTargets(ctx, world, width, height);
 
       const now = performance.now();
-      const reloadHoldProgress =
-        reloadHoldStartRef.current !== null ? (now - reloadHoldStartRef.current) / RELOAD_HOLD_MS : 0;
 
       ctx.save();
       ctx.translate(0, height - 34);
-      drawHud(ctx, world, width, reloadHoldProgress, stage);
+      drawHud(ctx, world, width, stage);
       ctx.restore();
 
       drawPopups(ctx, world, width, height);
@@ -717,7 +650,7 @@ export function TargetPractice({ send: _send, subscribe, onExit, mii }: GameProp
       const reticle = reticlePosRef.current;
       const rx = (reticle.x / 100) * width;
       const ry = (reticle.y / 100) * height;
-      drawReticle(ctx, rx, ry, world.magazine <= 0, now < world.muzzleFlashUntil);
+      drawReticle(ctx, rx, ry, now < world.muzzleFlashUntil);
 
       if (isPlaying && !transitioningRef.current) {
         const cfg = STAGES[stage - 1];
@@ -738,36 +671,7 @@ export function TargetPractice({ send: _send, subscribe, onExit, mii }: GameProp
   // resubscribe.
   useEffect(() => {
     return subscribe((msg) => {
-      if (msg.type === "pointer") {
-        // Unclamped y: 100 is the same POINTER_SENSITIVITY used for the
-        // clamped reticle, but here we deliberately don't clamp so we can
-        // tell "pointed a bit low" from "pointed well past the bottom edge".
-        const yUnclamped = 50 + msg.oy * POINTER_SENSITIVITY;
-        if (phaseRef.current !== "playing" || pausedRef.current) {
-          reloadHoldStartRef.current = null;
-          return;
-        }
-        const world = worldRef.current;
-        if (yUnclamped > RELOAD_Y_THRESHOLD) {
-          if (world.magazine >= MAG_SIZE) {
-            reloadHoldStartRef.current = null;
-            return;
-          }
-          const now = performance.now();
-          if (reloadHoldStartRef.current === null) {
-            reloadHoldStartRef.current = now;
-          } else if (now - reloadHoldStartRef.current >= RELOAD_HOLD_MS) {
-            world.magazine = MAG_SIZE;
-            world.reloadFlashUntil = now + 500;
-            reloadHoldStartRef.current = null;
-            playReloadChime();
-          }
-        } else {
-          reloadHoldStartRef.current = null;
-        }
-      } else if (msg.type === "recenter") {
-        reloadHoldStartRef.current = null;
-      } else if (msg.type === "button") {
+      if (msg.type === "button") {
         if (msg.button === "B") {
           if (msg.state === "down" && !bDownRef.current) {
             bDownRef.current = true;
@@ -846,7 +750,7 @@ export function TargetPractice({ send: _send, subscribe, onExit, mii }: GameProp
         </div>
       )}
 
-      <div className="target-practice-hint">B to fire · aim below the screen to reload · 1 to pause · HOME to exit</div>
+      <div className="target-practice-hint">B to fire · 1 to pause · HOME to exit</div>
     </div>
   );
 }

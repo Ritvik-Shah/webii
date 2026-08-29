@@ -57,8 +57,11 @@ const OY_SIGN = 1;
 
 // Steering: pointer.ox maps to a target lateral position (-1..1 across the
 // path), smoothed toward with an exponential lerp so it feels responsive
-// without being twitchy.
-const STEER_SCALE = 1.6;
+// without being twitchy. Bumped up from an earlier, less sensitive pass --
+// full steering range should be reachable with a small, easy phone tilt so
+// there's less large arm/wrist motion (and less chance to overcorrect and
+// crash) needed to stay on the path.
+const STEER_SCALE = 2.6;
 const STEER_SMOOTH_RATE = 7;
 // Flip to -1 if left/right ever reads backwards after live testing.
 const OX_SIGN = 1;
@@ -77,7 +80,7 @@ const JUMP_DURATION_S = 0.6;
 const JUMP_FORGIVENESS = 5;
 
 // Scoring.
-const HIT_RADIUS = 0.34;
+const HIT_RADIUS = 0.4;
 const STREAK_BONUS_EVERY = 3;
 const STREAK_BONUS_POINTS = 5;
 const REGULAR_POINTS = 1;
@@ -99,7 +102,9 @@ const MIN_GAP = 45;
 const MAX_GAP = 85;
 const SPAWN_LOOKAHEAD = 140;
 const DESPAWN_BEHIND = 20;
-const PATH_HALF_WIDTH = 0.88;
+// Narrowed from an earlier, wider pass -- a tighter path means less extreme
+// steering is needed to line up with (or dodge) obstacles.
+const PATH_HALF_WIDTH = 0.62;
 const CLUSTER_SPACING = 9;
 // Spawn-type weights (cumulative probabilities out of 1.0): hurdle, then
 // rare crowned scarecrow, then chained cluster, then (the remainder) a
@@ -321,8 +326,25 @@ function drawYarnBlob(ctx: CanvasRenderingContext2D, x: number, y: number, r: nu
   ctx.restore();
 }
 
-function drawScarecrow(ctx: CanvasRenderingContext2D, x: number, proj: Projection, sub: ScarecrowSub, status: ObstacleStatus) {
-  const s = proj.scale;
+// Obstacle sprites are sized off `proj.scale` (0.12-1.0, purely a distance
+// falloff) multiplied by this world-to-pixel factor, computed once per frame
+// from canvas size -- the same idea `drawCow` uses for its own baseScale.
+// Previously each obstacle multiplied plain `proj.scale` directly, which
+// left them just a few pixels across regardless of canvas size while the
+// cow scaled properly, making the cow look enormous next to tiny targets.
+function worldScale(width: number, height: number): number {
+  return Math.min(width, height) * 0.0095;
+}
+
+function drawScarecrow(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  proj: Projection,
+  sub: ScarecrowSub,
+  status: ObstacleStatus,
+  sizeScale: number,
+) {
+  const s = proj.scale * sizeScale;
   const y = proj.y;
   const knocked = status === "hit";
   ctx.save();
@@ -360,8 +382,14 @@ function drawScarecrow(ctx: CanvasRenderingContext2D, x: number, proj: Projectio
   ctx.restore();
 }
 
-function drawHurdle(ctx: CanvasRenderingContext2D, centerX: number, proj: Projection, status: ObstacleStatus) {
-  const s = proj.scale;
+function drawHurdle(
+  ctx: CanvasRenderingContext2D,
+  centerX: number,
+  proj: Projection,
+  status: ObstacleStatus,
+  sizeScale: number,
+) {
+  const s = proj.scale * sizeScale;
   const y = proj.y;
   const halfSpan = proj.laneHalfWidth * 1.05;
   const stumbled = status === "stumbled";
@@ -369,19 +397,48 @@ function drawHurdle(ctx: CanvasRenderingContext2D, centerX: number, proj: Projec
   ctx.save();
   ctx.translate(centerX, 0);
 
+  // High-contrast caution bar (previously a brown that blended straight
+  // into the ground/fence palette, which is a big part of why hurdles were
+  // easy to miss) with a striped accent, like a real hazard bar.
   ctx.save();
-  ctx.shadowColor = "rgba(80, 50, 20, 0.5)";
+  ctx.shadowColor = "rgba(0, 0, 0, 0.45)";
   ctx.shadowBlur = 3 * s;
-  ctx.fillStyle = "#7a4a26";
+  ctx.fillStyle = "#e0522f";
   ctx.beginPath();
   ctx.roundRect(-halfSpan, y - 8 * s, halfSpan * 2, 6 * s, 3 * s);
   ctx.fill();
+  ctx.fillStyle = "#fff4e0";
+  const stripeW = 6 * s;
+  for (let sx = -halfSpan + 2 * s; sx < halfSpan - stripeW; sx += stripeW * 2.2) {
+    ctx.fillRect(sx, y - 8 * s, stripeW, 6 * s);
+  }
   ctx.fillStyle = "#5c3d20";
   ctx.beginPath();
   ctx.roundRect(-halfSpan, y - 22 * s, 5 * s, 22 * s, 2 * s);
   ctx.fill();
   ctx.beginPath();
   ctx.roundRect(halfSpan - 5 * s, y - 22 * s, 5 * s, 22 * s, 2 * s);
+  ctx.fill();
+  ctx.restore();
+
+  // A tall warning flag well above the bar itself -- reads from much
+  // further away than the bar alone would, so a hurdle is spotted with
+  // plenty of time to react instead of appearing suddenly at jump range.
+  const poleTopY = y - 46 * s;
+  ctx.save();
+  ctx.strokeStyle = "#3a2515";
+  ctx.lineWidth = Math.max(1, 1.6 * s);
+  ctx.beginPath();
+  ctx.moveTo(0, y - 8 * s);
+  ctx.lineTo(0, poleTopY);
+  ctx.stroke();
+  const wave = Math.sin(performance.now() * 0.006 + centerX * 0.05) * 3 * s;
+  ctx.fillStyle = "#ffd54a";
+  ctx.beginPath();
+  ctx.moveTo(0, poleTopY);
+  ctx.lineTo(14 * s + wave, poleTopY + 5 * s);
+  ctx.lineTo(0, poleTopY + 10 * s);
+  ctx.closePath();
   ctx.fill();
   ctx.restore();
 
@@ -411,7 +468,12 @@ function drawCow(
   jumpFrac: number,
   stumbleFrac: number,
 ): CowScreen {
-  const baseScale = Math.min(width, height) * 0.011;
+  // Shrunk relative to an earlier pass, and now expressed off the same
+  // worldScale() the obstacles use (see the comment above drawScarecrow) so
+  // the cow and the things it's dodging/collecting are drawn to a
+  // consistent scale instead of the cow scaling with canvas size while
+  // obstacles stayed pinned to a tiny fixed range.
+  const baseScale = worldScale(width, height) * 0.85;
   const lateralRange = width * 0.24;
   const jitter = stumbleFrac > 0 ? Math.sin(performance.now() * 0.08) * 4 * stumbleFrac : 0;
   const x = width / 2 + steer * lateralRange + jitter;
@@ -629,16 +691,17 @@ export function Charge({ send, subscribe, onExit, mii }: GameProps) {
       drawFencePost(ctx, width / 2 + proj.laneHalfWidth + 4 * proj.scale, proj);
     }
 
+    const obstacleSizeScale = worldScale(width, height);
     for (let i = st.obstacles.length - 1; i >= 0; i--) {
       const ob = st.obstacles[i];
       const distance = ob.progress - st.progress;
       if (distance > VISIBLE_RANGE) continue;
       const proj = projectPoint(distance, width, height);
       if (ob.kind === "hurdle") {
-        drawHurdle(ctx, width / 2, proj, ob.status);
+        drawHurdle(ctx, width / 2, proj, ob.status, obstacleSizeScale);
       } else {
         const screenX = width / 2 + ob.x * proj.laneHalfWidth;
-        drawScarecrow(ctx, screenX, proj, ob.sub, ob.status);
+        drawScarecrow(ctx, screenX, proj, ob.sub, ob.status, obstacleSizeScale);
       }
     }
 
@@ -648,8 +711,11 @@ export function Charge({ send, subscribe, onExit, mii }: GameProps) {
 
     const rider = riderRef.current;
     if (rider) {
+      // cow.y already has the jump lift baked in (drawCow applies it once
+      // internally) -- applying it again here made the rider Mii fly twice
+      // as high as the cow body during a jump, visibly desyncing the two.
       rider.style.left = `${cow.x}px`;
-      rider.style.top = `${cow.y - (st.jumpTimer > 0 ? Math.sin(Math.PI * jumpFrac) * height * 0.1 : 0)}px`;
+      rider.style.top = `${cow.y}px`;
     }
   };
 

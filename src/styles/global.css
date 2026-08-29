@@ -523,6 +523,16 @@ a {
   padding-bottom: max(14px, env(safe-area-inset-bottom));
   padding-left: max(14px, env(safe-area-inset-left));
   overflow: hidden;
+  /* A sustained hold on a D-pad button (needed for continuous movement in
+     games like Tanks!) was triggering the browser's native long-press
+     text-selection/callout UI. user-select alone isn't enough on iOS --
+     -webkit-touch-callout is the one that actually suppresses the
+     selection magnifier/menu on a long touch-hold. Applied to the whole
+     remote (inherited) since the callout can latch onto any nearby text,
+     not just the button itself. */
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .wiimote-status {

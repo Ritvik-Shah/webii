@@ -411,6 +411,7 @@ export function Bowling({ subscribe, onExit, mii, lane }: GameProps) {
   const swingSafetyTimeoutRef = useRef<number | null>(null);
 
   const ballElRef = useRef<HTMLDivElement | null>(null);
+  const trackElRef = useRef<HTMLDivElement | null>(null);
   const rafRef = useRef<number | null>(null);
   const positionRafRef = useRef<number | null>(null);
   const rollingTimeoutRef = useRef<number | null>(null);
@@ -443,7 +444,9 @@ export function Bowling({ subscribe, onExit, mii, lane }: GameProps) {
   // Drives the ball's curved travel from the bowler's end to the pin deck
   // via CSS custom properties on the ball element directly (rAF loop,
   // no per-frame React state) -- purely visual, independent of the phase
-  // timers below which still own the actual state transitions.
+  // timers below which still own the actual state transitions. Also pushes
+  // the camera in on the pins as the ball travels (--bowling-camera-t),
+  // matching the real game's camera following the ball down the lane.
   const animateRoll = useCallback((aimComponent: number, curveAtPins: number, durationMs: number) => {
     if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
     const start = performance.now();
@@ -459,6 +462,7 @@ export function Bowling({ subscribe, onExit, mii, lane }: GameProps) {
         el.style.setProperty("--ball-x", (aimComponent + curve).toFixed(3));
         el.style.setProperty("--ball-y", t.toFixed(3));
       }
+      trackElRef.current?.style.setProperty("--bowling-camera-t", t.toFixed(3));
       if (t < 1) {
         rafRef.current = requestAnimationFrame(tick);
       } else {
@@ -527,6 +531,9 @@ export function Bowling({ subscribe, onExit, mii, lane }: GameProps) {
             setFrameIndex(step.frameIndex);
             setThrowIndex(step.throwIndex);
             setPhase("ready");
+            // Camera pulls back out to the pre-throw framing before the
+            // next ball, rather than staying zoomed in on the pins.
+            trackElRef.current?.style.setProperty("--bowling-camera-t", "0");
           }
         }, RESULT_DURATION_MS);
       }, ROLLING_DURATION_MS);
@@ -757,15 +764,19 @@ export function Bowling({ subscribe, onExit, mii, lane }: GameProps) {
       </div>
 
       <div className="bowling-lane">
-        <div className="bowling-track">
+        <div className="bowling-track" ref={trackElRef}>
           <div className={`bowling-pin-zoom-wrap${zoomed ? " bowling-zoomed" : ""}`}>
             <div className={`bowling-pins${isStrikeBall ? " bowling-pins-strike" : ""}`}>
               {PIN_ROWS.map((rowSize, rowIndex) => {
                 const startIndex = PIN_ROWS.slice(0, rowIndex).reduce((a, b) => a + b, 0);
                 // Rows get very slightly smaller toward the far end of the
                 // deck, a cheap perspective cue paired with the lane's
-                // rotateX tilt below.
-                const rowStyle = { "--bowling-row-scale": (1 - rowIndex * 0.06).toFixed(2) } as CSSProperties;
+                // rotateX tilt below. rowIndex 0 is the 4-pin back row (the
+                // farthest from the bowler); the headpin (rowIndex
+                // PIN_ROWS.length-1) is nearest, so it gets the largest
+                // scale.
+                const distanceFromNear = PIN_ROWS.length - 1 - rowIndex;
+                const rowStyle = { "--bowling-row-scale": (1 - distanceFromNear * 0.06).toFixed(2) } as CSSProperties;
                 return (
                   <div className="bowling-pin-row" key={rowIndex} style={rowStyle}>
                     {Array.from({ length: rowSize }).map((_, i) => {

@@ -173,6 +173,12 @@
   width: 100%;
   --bowling-pin-unit: 1.4rem;
   --bowling-travel: 42vh;
+  /* Camera follows the ball down the lane during the roll -- --bowling-
+     camera-t is driven 0->1 by the same rAF loop that animates --ball-y, so
+     the whole scene gradually pushes in on the pins as the ball approaches,
+     rather than sitting at a fixed distance the entire throw. */
+  transform: scale(calc(1 + var(--bowling-camera-t, 0) * 0.3));
+  transform-origin: center 12%;
 }
 
 .bowling-lane::before {
@@ -210,7 +216,14 @@
 
 .bowling-pins {
   display: flex;
-  flex-direction: column-reverse;
+  /* Was column-reverse, which put the 4-pin back row at the near end of the
+     rack (closest to the bowler) and the headpin at the far end -- exactly
+     backwards from real bowling, where the single headpin is the front-most
+     pin the ball meets first and the 4-pin row is the deepest/farthest row.
+     Plain column (matching PIN_ROWS = [4,3,2,1] top-to-bottom, with "top" of
+     .bowling-track being the far end per the ball's travel direction) puts
+     the headpin at the bottom/near end where it belongs. */
+  flex-direction: column;
   align-items: center;
   gap: 0.6rem;
   padding: 1rem 1.5rem;

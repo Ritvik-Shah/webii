@@ -89,7 +89,10 @@ export function NdsPlayer({ subscribe, onExit, mii, title, romFile, bios7, bios9
       firmware: firmwareUrl,
       name: title,
     });
-    iframeSrc.current = `/nds-player.html?${params.toString()}`;
+    // The Workers assets binding auto-redirects the .html extension away
+    // (/nds-player.html -> /nds-player); reference the clean URL directly
+    // rather than relying on the iframe following that redirect.
+    iframeSrc.current = `/nds-player?${params.toString()}`;
   }
 
   useEffect(() => {

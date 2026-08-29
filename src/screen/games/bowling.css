@@ -33,36 +33,107 @@
   pointer-events: none;
 }
 
-.bowling-scoreboard {
+/* 10-frame scoreboard strip -- one column per frame, each showing its
+   roll(s) in standard notation (X / numbers) plus a running cumulative
+   total. Horizontally scrollable as a safety net on narrow screens rather
+   than ever wrapping. */
+.bowling-frames {
   display: flex;
-  gap: 8vw;
+  gap: 0.35rem;
   background: rgba(43, 26, 14, 0.85);
   border: 3px solid #f0d5a8;
-  border-radius: 16px;
-  padding: 1.2rem 3rem;
+  border-radius: 14px;
+  padding: 0.6rem 0.8rem;
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  z-index: 1;
+  max-width: 94vw;
+  overflow-x: auto;
+}
+
+.bowling-frame {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  min-width: clamp(2.4rem, 5.4vw, 3.6rem);
+  border-radius: 6px;
+  overflow: hidden;
+  background: rgba(255, 246, 230, 0.06);
+  transition: background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.bowling-frame-current {
+  background: rgba(255, 214, 90, 0.18);
+  box-shadow: 0 0 0 2px rgba(255, 214, 90, 0.6) inset;
+}
+
+.bowling-frame-number {
+  font-size: clamp(0.6rem, 1.1vw, 0.75rem);
+  text-align: center;
+  color: #e8c68e;
+  opacity: 0.8;
+  padding-top: 0.15rem;
+}
+
+.bowling-frame-throws {
+  display: flex;
+  justify-content: center;
+  gap: 0.15rem;
+  padding: 0.15rem 0.2rem;
+  min-height: 1.4rem;
+}
+
+.bowling-frame-throw {
+  font-size: clamp(0.75rem, 1.6vw, 1rem);
+  font-weight: 700;
+  color: #fff6e6;
+  min-width: 1rem;
+  text-align: center;
+}
+
+.bowling-frame-total {
+  font-size: clamp(0.85rem, 1.8vw, 1.15rem);
+  font-weight: 800;
+  color: #ffd65a;
+  text-align: center;
+  padding-bottom: 0.2rem;
+  min-height: 1.2em;
+}
+
+/* Position/angle mode + zoom feedback pills, shown just under the lane
+   label so it's clear which D-pad Left/Right target is currently active. */
+.bowling-controls-status {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
   z-index: 1;
 }
 
-.bowling-scoreboard-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.bowling-scoreboard-label {
-  font-size: clamp(0.9rem, 1.6vw, 1.2rem);
-  letter-spacing: 0.12em;
+.bowling-mode-pill {
+  font-size: clamp(0.7rem, 1.4vw, 0.9rem);
+  padding: 0.25rem 0.7rem;
+  border-radius: 999px;
+  border: 2px solid rgba(255, 246, 230, 0.35);
+  color: rgba(255, 246, 230, 0.7);
   text-transform: uppercase;
-  color: #e8c68e;
-  opacity: 0.85;
+  letter-spacing: 0.06em;
+  transition: border-color 0.2s ease, color 0.2s ease, background-color 0.2s ease;
 }
 
-.bowling-scoreboard-value {
-  font-size: clamp(2rem, 5vw, 3.2rem);
-  font-weight: 800;
-  color: #fff6e6;
-  line-height: 1.15;
+.bowling-mode-active {
+  border-color: #ffd65a;
+  color: #ffd65a;
+  background: rgba(255, 214, 90, 0.15);
+}
+
+.bowling-zoom-pill {
+  font-size: clamp(0.7rem, 1.4vw, 0.9rem);
+  padding: 0.25rem 0.7rem;
+  border-radius: 999px;
+  border: 2px solid #7fd8ff;
+  color: #7fd8ff;
+  background: rgba(127, 216, 255, 0.15);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 
 .bowling-lane-label {
@@ -125,6 +196,18 @@
   z-index: -1;
 }
 
+/* Wraps .bowling-pins so the D-pad-Up zoom scale (set from Bowling.tsx via
+   the bowling-zoomed class) doesn't clobber .bowling-pins' own rotateX
+   perspective transform. */
+.bowling-pin-zoom-wrap {
+  transition: transform 0.25s ease;
+  transform-origin: center 20%;
+}
+
+.bowling-pin-zoom-wrap.bowling-zoomed {
+  transform: scale(1.4);
+}
+
 .bowling-pins {
   display: flex;
   flex-direction: column-reverse;
@@ -170,6 +253,9 @@
   animation-delay: var(--bowling-pin-fall-delay, 0ms);
 }
 
+/* --bowling-arrow-rotate reflects the aim-angle D-pad offset, set inline
+   from Bowling.tsx, so the lane arrow visibly points where the aim angle is
+   currently set. */
 .bowling-arrow {
   margin-top: 1.2rem;
   width: 0;
@@ -177,6 +263,8 @@
   border-left: 14px solid transparent;
   border-right: 14px solid transparent;
   border-bottom: 22px solid rgba(43, 26, 14, 0.35);
+  transform: rotate(var(--bowling-arrow-rotate, 0deg));
+  transition: transform 0.2s ease;
 }
 
 /* The rolled ball itself -- position driven by --ball-x/--ball-y custom
@@ -209,11 +297,16 @@
 
 /* The bowler's Mii, standing at the foul line (the near end of the lane,
    opposite the pins) -- right where the ball's roll animation originates. */
+/* --bowling-standing-shift reflects the stance D-pad offset, set inline
+   from Bowling.tsx, so the bowler's Mii visibly slides along the foul line
+   as the player repositions. */
 .bowling-bowler {
   display: flex;
   justify-content: center;
   margin-top: 2rem;
   z-index: 1;
+  transform: translateX(var(--bowling-standing-shift, 0px));
+  transition: transform 0.2s ease;
 }
 
 .bowling-result {

@@ -1,0 +1,108 @@
+/* Target Practice mini-game -- gun-range HUD chrome around the canvas, which
+   owns the actual backdrop/targets/reticle/score art. All classes are
+   prefixed `target-practice-` so this global-scope stylesheet can't collide
+   with any other game or the app shell. */
+
+.target-practice-root {
+  width: 100%;
+  height: 100dvh;
+  position: relative;
+  background: #1c2b29;
+  font-family: "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
+  overflow: hidden;
+}
+
+.target-practice-canvas-wrap {
+  position: absolute;
+  inset: 0;
+}
+
+.target-practice-mii {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  z-index: 2;
+  background: rgba(20, 32, 30, 0.55);
+  border: 2px solid rgba(234, 250, 246, 0.35);
+  border-radius: 14px;
+  padding: 0.35rem;
+  pointer-events: none;
+}
+
+.target-practice-hint {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0.6rem;
+  text-align: center;
+  font-size: clamp(0.75rem, 1.4vw, 0.95rem);
+  color: rgba(234, 250, 246, 0.75);
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+  z-index: 2;
+  pointer-events: none;
+}
+
+.target-practice-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 16, 15, 0.55);
+  z-index: 3;
+  animation: target-practice-fade-in 0.2s ease;
+}
+
+.target-practice-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(20, 32, 30, 0.92);
+  border: 3px solid #7fd9c9;
+  border-radius: 18px;
+  padding: 2rem 3rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  text-align: center;
+}
+
+.target-practice-panel-title {
+  margin: 0;
+  font-size: clamp(1.6rem, 4vw, 2.6rem);
+  font-weight: 800;
+  color: #eafaf6;
+  text-shadow: 0 3px 8px rgba(0, 0, 0, 0.4);
+}
+
+.target-practice-panel-text {
+  margin: 0;
+  font-size: clamp(1rem, 2vw, 1.3rem);
+  color: rgba(234, 250, 246, 0.85);
+}
+
+.target-practice-panel-hint {
+  margin: 0.6rem 0 0;
+  font-size: clamp(0.8rem, 1.5vw, 1rem);
+  color: rgba(234, 250, 246, 0.6);
+}
+
+.target-practice-final {
+  min-width: min(80vw, 380px);
+}
+
+.target-practice-final-score {
+  font-size: clamp(3rem, 8vw, 5rem);
+  font-weight: 900;
+  color: #ffd65a;
+  text-shadow: 0 3px 10px rgba(0, 0, 0, 0.4);
+  line-height: 1.1;
+}
+
+@keyframes target-practice-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}

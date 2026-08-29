@@ -1,0 +1,153 @@
+/* Tanks! mini-game -- olive/military theme (matches the channel's #5a7a3b
+   accent). All classes are prefixed `tanks-` so this global-scope stylesheet
+   can't collide with any other game or the app shell. */
+
+.tanks-root {
+  position: relative;
+  width: 100%;
+  height: 100dvh;
+  overflow: hidden;
+  background: #0a0e0a;
+  font-family: "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
+  color: #eef2e8;
+}
+
+.tanks-canvas-wrap {
+  position: absolute;
+  inset: 0;
+}
+
+.tanks-canvas {
+  display: block;
+}
+
+.tanks-hud-lives,
+.tanks-hud-level {
+  position: absolute;
+  top: 2vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+  background: rgba(10, 14, 10, 0.72);
+  border: 2px solid rgba(238, 242, 232, 0.35);
+  border-radius: 10px;
+  padding: 0.5rem 1rem;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+  z-index: 2;
+  pointer-events: none;
+}
+
+.tanks-hud-lives {
+  left: 2vw;
+}
+
+.tanks-hud-level {
+  right: 2vw;
+}
+
+.tanks-hud-label {
+  font-size: clamp(0.65rem, 1.2vw, 0.85rem);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #b9c9a8;
+  opacity: 0.85;
+}
+
+.tanks-hud-value {
+  font-size: clamp(1.2rem, 2.6vw, 1.7rem);
+  font-weight: 800;
+  color: #fff;
+  line-height: 1.1;
+}
+
+.tanks-hud-mii {
+  position: absolute;
+  left: 2vw;
+  bottom: 2vh;
+  z-index: 2;
+  pointer-events: none;
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.5));
+}
+
+.tanks-hint {
+  position: absolute;
+  bottom: 1.4vh;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: clamp(0.75rem, 1.4vw, 0.95rem);
+  color: rgba(238, 242, 232, 0.7);
+  text-align: center;
+  z-index: 2;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.tanks-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(6, 9, 6, 0.55);
+  z-index: 3;
+  pointer-events: none;
+}
+
+.tanks-banner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  background: rgba(10, 14, 10, 0.9);
+  border: 3px solid #8fae6f;
+  border-radius: 20px;
+  padding: 1.6rem 3rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  font-size: clamp(1.4rem, 4vw, 2.4rem);
+  font-weight: 800;
+  text-align: center;
+  color: #eef2e8;
+  animation: tanks-banner-pop 0.4s ease;
+}
+
+.tanks-banner-bad {
+  border-color: #c1503f;
+  color: #ffb4a3;
+}
+
+.tanks-banner-good {
+  border-color: #f4c94a;
+  color: #ffe9a8;
+  animation: tanks-banner-pop 0.4s ease, tanks-banner-glow 1.2s ease-in-out infinite;
+}
+
+.tanks-banner-sub {
+  font-size: clamp(0.85rem, 1.8vw, 1.15rem);
+  font-weight: 500;
+  color: rgba(238, 242, 232, 0.75);
+}
+
+@keyframes tanks-banner-pop {
+  0% {
+    transform: scale(0.75);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes tanks-banner-glow {
+  0%,
+  100% {
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  }
+  50% {
+    box-shadow: 0 10px 40px rgba(244, 201, 74, 0.55);
+  }
+}

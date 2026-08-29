@@ -7,9 +7,10 @@ export interface Channel {
 
 export const CHANNELS: Channel[] = [
   { id: "mii", title: "Mii Channel", accent: "#f4a300", status: "soon" },
-  { id: "tennis", title: "Wii Sports: Tennis", accent: "#3bb54a", status: "ready" },
   { id: "bowling", title: "Wii Sports: Bowling", accent: "#3b82c4", status: "ready" },
-  { id: "sword", title: "Sword Duel", accent: "#c43b3b", status: "ready" },
+  { id: "target", title: "Shooting Range", accent: "#c43b3b", status: "ready" },
+  { id: "tanks", title: "Tanks!", accent: "#5a7a3b", status: "ready" },
+  { id: "charge", title: "Charge!", accent: "#c48a3b", status: "ready" },
   { id: "photo", title: "Photo Channel", accent: "#f4a300", status: "soon" },
   { id: "weather", title: "Forecast Channel", accent: "#3bb5d0", status: "soon" },
   { id: "news", title: "News Channel", accent: "#c43bb0", status: "soon" },
@@ -17,5 +18,4 @@ export const CHANNELS: Channel[] = [
   { id: "settings", title: "Wii Options", accent: "#888888", status: "soon" },
   { id: "friends", title: "Friend Roster", accent: "#3b6bc4", status: "soon" },
   { id: "message", title: "Message Board", accent: "#c4a13b", status: "soon" },
-  { id: "disc", title: "Disc Channel", accent: "#3bc4a1", status: "soon" },
 ];

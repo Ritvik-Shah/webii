@@ -1,3 +1,4 @@
+import type { TouchEvent } from "react";
 import type { ButtonName } from "../../shared/protocol";
 
 interface WiimoteProps {
@@ -11,7 +12,7 @@ interface WiimoteProps {
 export default function Wiimote({ connected, screenConnected, send, roomCode, onRecenter }: WiimoteProps) {
   function press(button: ButtonName) {
     send({ type: "button", button, state: "down" });
-    if (navigator.vibrate) navigator.vibrate(15);
+    if (navigator.vibrate) navigator.vibrate(10);
   }
 
   function release(button: ButtonName) {
@@ -21,6 +22,25 @@ export default function Wiimote({ connected, screenConnected, send, roomCode, on
   function recenter() {
     onRecenter();
     if (navigator.vibrate) navigator.vibrate([10, 30, 10]);
+  }
+
+  // Shared touch+mouse handlers for a press-and-hold face button. onMouseLeave
+  // releases too, so dragging off a button during desktop testing can't leave
+  // it stuck "down".
+  function pressHandlers(button: ButtonName) {
+    return {
+      onTouchStart: (e: TouchEvent) => {
+        e.preventDefault();
+        press(button);
+      },
+      onTouchEnd: (e: TouchEvent) => {
+        e.preventDefault();
+        release(button);
+      },
+      onMouseDown: () => press(button),
+      onMouseUp: () => release(button),
+      onMouseLeave: () => release(button),
+    };
   }
 
   return (
@@ -34,59 +54,70 @@ export default function Wiimote({ connected, screenConnected, send, roomCode, on
           {screenConnected ? "Screen paired" : "Waiting for screen…"}
         </span>
       </div>
+
       <div className="wiimote-body">
-        <button
-          className="wiimote-btn wiimote-home"
-          onTouchStart={(e) => {
-            e.preventDefault();
-            press("HOME");
-          }}
-          onTouchEnd={(e) => {
-            e.preventDefault();
-            release("HOME");
-          }}
-          onMouseDown={() => press("HOME")}
-          onMouseUp={() => release("HOME")}
-        >
-          HOME
-        </button>
-        <button
-          className="wiimote-btn wiimote-a"
-          onTouchStart={(e) => {
-            e.preventDefault();
-            press("A");
-          }}
-          onTouchEnd={(e) => {
-            e.preventDefault();
-            release("A");
-          }}
-          onMouseDown={() => press("A")}
-          onMouseUp={() => release("A")}
-        >
+        <div className="wiimote-top-row">
+          <button className="wiimote-btn wiimote-recenter" onClick={recenter}>
+            Recenter
+          </button>
+          <button className="wiimote-btn wiimote-home" {...pressHandlers("HOME")}>
+            HOME
+          </button>
+        </div>
+
+        <button className="wiimote-btn wiimote-a" {...pressHandlers("A")}>
           A
         </button>
-        <button
-          className="wiimote-btn wiimote-b"
-          onTouchStart={(e) => {
-            e.preventDefault();
-            press("B");
-          }}
-          onTouchEnd={(e) => {
-            e.preventDefault();
-            release("B");
-          }}
-          onMouseDown={() => press("B")}
-          onMouseUp={() => release("B")}
-        >
+
+        <div className="wiimote-dpad" role="group" aria-label="D-pad">
+          <button
+            className="wiimote-btn wiimote-dpad-btn wiimote-dpad-up"
+            aria-label="D-pad up"
+            {...pressHandlers("UP")}
+          >
+            ▲
+          </button>
+          <button
+            className="wiimote-btn wiimote-dpad-btn wiimote-dpad-left"
+            aria-label="D-pad left"
+            {...pressHandlers("LEFT")}
+          >
+            ◀
+          </button>
+          <div className="wiimote-dpad-center" aria-hidden="true" />
+          <button
+            className="wiimote-btn wiimote-dpad-btn wiimote-dpad-right"
+            aria-label="D-pad right"
+            {...pressHandlers("RIGHT")}
+          >
+            ▶
+          </button>
+          <button
+            className="wiimote-btn wiimote-dpad-btn wiimote-dpad-down"
+            aria-label="D-pad down"
+            {...pressHandlers("DOWN")}
+          >
+            ▼
+          </button>
+        </div>
+
+        <div className="wiimote-one-two-row">
+          <button className="wiimote-btn wiimote-one" {...pressHandlers("ONE")}>
+            1
+          </button>
+          <button className="wiimote-btn wiimote-two" {...pressHandlers("TWO")}>
+            2
+          </button>
+        </div>
+
+        <button className="wiimote-btn wiimote-b" {...pressHandlers("B")}>
           B
         </button>
-        <button className="wiimote-btn wiimote-recenter" onClick={recenter}>
-          Recenter
-        </button>
       </div>
+
       <p className="wiimote-hint">
-        Hold your phone upright like a remote and aim it at the screen -- swing your wrist left/right and up/down
-        to point, tap A to select. If it's off, tap Recenter while aiming at the middle of the screen.
+        Hold your phone upright and aim it at the screen to point. Tap Recenter while aiming at the middle of the
+        screen if it drifts.
       </p>
     </div>
   );

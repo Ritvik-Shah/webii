@@ -93,3 +93,34 @@ export function usePointerGrid(
 
   return { cursorRef, hoveredIndex };
 }
+
+/**
+ * Free-aim variant for canvas games that need a continuous reticle/turret
+ * position rather than grid-cell hovering (Target Practice's gun sight,
+ * Tanks!'s turret crosshair). Returns a plain ref -- NOT React state -- so
+ * canvas games (which already redraw every animation frame) can read
+ * `posRef.current` directly in their draw loop without this hook forcing an
+ * extra re-render on every pointer tick (~30/sec). `x`/`y` are percent of
+ * the play area, 0-100, same absolute-offset-from-calibrated-center mapping
+ * as `usePointerGrid`.
+ */
+export function usePointerPosition(
+  subscribe: (fn: (msg: ControllerMessage) => void) => () => void,
+): RefObject<{ x: number; y: number }> {
+  const posRef = useRef({ x: 50, y: 50 });
+
+  useEffect(() => {
+    return subscribe((msg) => {
+      if (msg.type === "pointer") {
+        posRef.current = {
+          x: clamp(50 + msg.ox * POINTER_SENSITIVITY, 0, 100),
+          y: clamp(50 + msg.oy * POINTER_SENSITIVITY, 0, 100),
+        };
+      } else if (msg.type === "recenter") {
+        posRef.current = { x: 50, y: 50 };
+      }
+    });
+  }, [subscribe]);
+
+  return posRef;
+}

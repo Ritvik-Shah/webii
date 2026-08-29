@@ -6,19 +6,22 @@ import { fetchNewRoomCode } from "../lib/roomCode";
 import { useRoomSocket } from "../lib/useRoomSocket";
 import { PairingScreen } from "./PairingScreen";
 import { WiiMenu } from "./WiiMenu";
+import { DebugOverlay } from "./DebugOverlay";
 import { CHANNELS } from "./channels";
 import { MiiSelect } from "./mii/MiiSelect";
 import { LaneSelect } from "./mii/LaneSelect";
 import type { Mii } from "./mii/Mii";
-import { Tennis } from "./games/Tennis";
 import { Bowling } from "./games/Bowling";
-import { SwordDuel } from "./games/SwordDuel";
+import { TargetPractice } from "./games/TargetPractice";
+import { Tanks } from "./games/Tanks";
+import { Charge } from "./games/Charge";
 import type { GameProps } from "./games/types";
 
 const GAME_SCREENS: Record<string, ComponentType<GameProps>> = {
-  tennis: Tennis,
   bowling: Bowling,
-  sword: SwordDuel,
+  target: TargetPractice,
+  tanks: Tanks,
+  charge: Charge,
 };
 
 // Bowling gets an extra lane-select step between choosing a Mii and playing,
@@ -139,5 +142,10 @@ export function ScreenApp() {
     }
   };
 
-  return <div className="screen-root">{renderMain()}</div>;
+  return (
+    <div className="screen-root">
+      {renderMain()}
+      {presence?.controllerConnected && <DebugOverlay subscribe={subscribe} />}
+    </div>
+  );
 }

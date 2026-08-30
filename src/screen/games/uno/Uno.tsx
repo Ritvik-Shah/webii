@@ -97,7 +97,7 @@ export function Uno({ send, subscribe, onExit, players, publish }: GameProps) {
         view = {
           title: next.winner === index ? "You went out!" : `Player ${roster[next.winner].player} went out`,
           note: `You were left with ${handPoints(hand)} points of cards.`,
-          waiting: true,
+          actions: [{ id: "exit", label: "Back to the Wii Menu", style: "primary" }],
         };
       } else if (yourTurn && next.awaitingColor) {
         view = {
@@ -245,6 +245,12 @@ export function Uno({ send, subscribe, onExit, players, publish }: GameProps) {
           draw: [...current.draw],
           log: [...current.log],
         };
+
+        // Leaving is available to anyone once the round is over.
+        if (id === "exit") {
+          if (next.winner !== null) onExitRef.current();
+          return current;
+        }
 
         // Calling Uno is the one action available out of turn.
         if (id === "uno") {
@@ -402,12 +408,12 @@ export function Uno({ send, subscribe, onExit, players, publish }: GameProps) {
                   </li>
                 ))}
             </ol>
-            <p className="uno-hint">Press A to return to the Wii Menu</p>
+            <p className="uno-hint">Tap Back on any phone to return to the Wii Menu</p>
           </div>
         </div>
       )}
 
-      <div className="uno-hint-bar">Play from your phone · HOME to exit</div>
+      <div className="uno-hint-bar">Play from your phone · tap Home on a phone to exit</div>
     </div>
   );
 }

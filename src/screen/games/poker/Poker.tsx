@@ -64,11 +64,13 @@ export function Poker({ send, subscribe, onExit, players, publish }: GameProps) 
     const pot = potTotal(hand);
 
     hand.seats.forEach((seat, index) => {
+      // Shown at full strength: these are the player's own cards, not a list
+      // of moves. Marking them unplayable greyed them out as if disabled.
+      // Tapping one sends an id the action handler simply ignores.
       const holeCards = seat.hole.map((card) => ({
         id: `hole:${card.rank}${card.suit}`,
         label: cardLabel(card),
         color: SUIT_IS_RED[card.suit] ? "#c0392b" : "#22262e",
-        playable: false,
       }));
 
       let view: PhoneView;
@@ -78,7 +80,8 @@ export function Poker({ send, subscribe, onExit, players, publish }: GameProps) 
           title: won > 0 ? `You win ${won}` : seat.folded ? "You folded" : "Hand over",
           note: `You have ${seat.chips} chips.`,
           cards: holeCards,
-          waiting: true,
+          // Between hands is the natural moment to be able to walk away.
+          actions: [{ id: "exit", label: "Back to the Wii Menu", style: "primary" }],
         };
       } else if (seat.folded) {
         view = { title: "You folded", note: `Waiting for the hand to finish.`, waiting: true };
@@ -133,6 +136,10 @@ export function Poker({ send, subscribe, onExit, players, publish }: GameProps) 
     return subscribe((msg, player) => {
       if (msg.type !== "action") return;
       const current = handRef.current;
+      if (msg.id === "exit") {
+        if (current.street === "done") onExitRef.current();
+        return;
+      }
       if (current.street === "done") return;
       const index = seatOf(player);
       if (index !== current.toAct) return;
@@ -265,12 +272,12 @@ export function Poker({ send, subscribe, onExit, players, publish }: GameProps) 
         <div className="poker-overlay">
           <div className="poker-final">
             <h2>Player {hand.seats.find((s) => s.chips > 0)?.player} takes it all</h2>
-            <p className="poker-hint">Press A to return to the Wii Menu</p>
+            <p className="poker-hint">Tap Back on any phone to return to the Wii Menu</p>
           </div>
         </div>
       )}
 
-      <div className="poker-hint-bar">Bet from your phone · blinds {SMALL_BLIND}/{BIG_BLIND} · HOME to exit</div>
+      <div className="poker-hint-bar">Bet from your phone · blinds {SMALL_BLIND}/{BIG_BLIND} · tap Home on a phone to exit</div>
     </div>
   );
 }

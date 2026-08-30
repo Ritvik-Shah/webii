@@ -12,8 +12,18 @@
   font-family: "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
 }
 
-.phone-view.is-waiting {
-  /* Someone else's turn: still readable, clearly not interactive. */
+/* Someone else's turn: the game content dims, but the bar -- and with it the
+   way back to the menu -- stays at full strength. Dimming the whole view
+   would have taken the Home button with it, since a child can never be more
+   opaque than its parent. */
+.phone-view.is-waiting .phone-view-title,
+.phone-view.is-waiting .phone-view-subtitle,
+.phone-view.is-waiting .phone-view-note,
+.phone-view.is-waiting .phone-view-hand,
+.phone-view.is-waiting .phone-view-choices,
+.phone-view.is-waiting .phone-view-actions,
+.phone-view.is-waiting .phone-view-slider,
+.phone-view.is-waiting .phone-view-input {
   opacity: 0.62;
 }
 
@@ -21,9 +31,26 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 8px;
   font-size: 0.8rem;
   font-weight: 600;
+}
+
+.phone-view-bar > span:first-child {
   opacity: 0.75;
+}
+
+/* The only way out of a game view, so it is deliberately obvious and a real
+   tap target rather than a subtle chip in the corner. */
+.phone-view-home {
+  min-height: 34px;
+  padding: 6px 16px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.2);
+  border: 2px solid rgba(255, 255, 255, 0.55);
+  color: #ffffff;
+  font-size: 0.85rem;
+  font-weight: 800;
 }
 
 .phone-view-player {

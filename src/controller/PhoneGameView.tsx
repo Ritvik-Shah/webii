@@ -35,6 +35,18 @@ export default function PhoneGameView({ view, send, roomCode, player }: PhoneGam
       <div className="phone-view-bar">
         <span>Room {roomCode}</span>
         <span className="phone-view-player">Player {player}</span>
+        {/* A game view replaces the whole remote, so without this there is
+            literally no button left that can send HOME and leave the game. */}
+        <button
+          className="phone-view-home"
+          onClick={() => {
+            send({ type: "button", button: "HOME", state: "down" });
+            send({ type: "button", button: "HOME", state: "up" });
+            if (navigator.vibrate) navigator.vibrate(12);
+          }}
+        >
+          Home
+        </button>
       </div>
 
       {view.title && <h1 className="phone-view-title">{view.title}</h1>}

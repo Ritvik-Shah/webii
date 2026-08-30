@@ -113,11 +113,14 @@ export class GameRoom extends DurableObject<Env> {
 
   async webSocketClose(ws: WebSocket) {
     ws.close();
-    this.broadcastPresence();
+    // The closing socket is still listed by getWebSockets() at this point in
+    // production (though not in the local dev runtime), so it has to be
+    // excluded explicitly or the roster still shows the player who just left.
+    this.broadcastPresence(ws);
   }
 
-  async webSocketError() {
-    this.broadcastPresence();
+  async webSocketError(ws: WebSocket) {
+    this.broadcastPresence(ws);
   }
 
   /**
@@ -125,7 +128,7 @@ export class GameRoom extends DurableObject<Env> {
    * Returns 0 when every slot is taken.
    */
   private claimPlayerSlot(wanted: number): number {
-    const taken = new Set(this.connectedPlayers());
+    const taken = new Set(this.connectedPlayers(null));
     if (wanted >= 1 && wanted <= MAX_PLAYERS && !taken.has(wanted)) return wanted;
     for (let player = 1; player <= MAX_PLAYERS; player++) {
       if (!taken.has(player)) return player;
@@ -133,10 +136,15 @@ export class GameRoom extends DurableObject<Env> {
     return 0;
   }
 
-  private connectedPlayers(): number[] {
+  /** Player numbers with a live socket, ignoring `leaving` (the socket
+   * currently being torn down) and anything already closing. */
+  private connectedPlayers(leaving: WebSocket | null): number[] {
     const players: number[] = [];
     for (let player = 1; player <= MAX_PLAYERS; player++) {
-      if (this.ctx.getWebSockets(playerTag(player)).length > 0) players.push(player);
+      const live = this.ctx
+        .getWebSockets(playerTag(player))
+        .some((ws) => ws !== leaving && isOpen(ws));
+      if (live) players.push(player);
     }
     return players;
   }
@@ -158,20 +166,32 @@ export class GameRoom extends DurableObject<Env> {
     return 0;
   }
 
-  private broadcastPresence() {
+  private broadcastPresence(leaving: WebSocket | null = null) {
     const presence: PresenceMessage = {
       type: "presence",
-      screenConnected: this.ctx.getWebSockets("screen").length > 0,
-      players: this.connectedPlayers(),
+      screenConnected: this.ctx.getWebSockets("screen").some((ws) => ws !== leaving && isOpen(ws)),
+      players: this.connectedPlayers(leaving),
       roomCode: this.roomCode,
     };
     const payload = JSON.stringify(presence);
     for (const ws of [...this.ctx.getWebSockets("screen"), ...this.ctx.getWebSockets("controller")]) {
-      ws.send(payload);
+      if (ws === leaving || !isOpen(ws)) continue;
+      try {
+        ws.send(payload);
+      } catch {
+        // Socket went away between the check and the send; the close
+        // handler will broadcast again.
+      }
     }
   }
 }
 
 function playerTag(player: number): string {
   return `p${player}`;
+}
+
+/** WebSocket.OPEN, without relying on the constant being present on the
+ * hibernation-API socket objects. */
+function isOpen(ws: WebSocket): boolean {
+  return ws.readyState === 1;
 }

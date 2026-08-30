@@ -148,3 +148,30 @@ export function rollGlyph(card: Frame[], frameIndex: number, rollIndex: number):
   }
   return pins === 0 ? "-" : String(pins);
 }
+
+// ---------------------------------------------------------------------------
+// Turn order
+// ---------------------------------------------------------------------------
+
+/** Who is bowling, and which frame everyone is on. */
+export interface TurnCursor {
+  /** Index into the player list, not the room's player number. */
+  turnIndex: number;
+  frameIndex: number;
+}
+
+/**
+ * Where play moves once the current player's frame is complete: along to the
+ * next player, or back to the first player and on to the next frame. Returns
+ * `null` when the last player has finished the tenth frame and the game is
+ * over.
+ */
+export function nextTurn(cursor: TurnCursor, playerCount: number): TurnCursor | null {
+  const nextIndex = cursor.turnIndex + 1;
+  if (nextIndex < playerCount) {
+    return { turnIndex: nextIndex, frameIndex: cursor.frameIndex };
+  }
+  const nextFrame = cursor.frameIndex + 1;
+  if (nextFrame >= FRAME_COUNT) return null;
+  return { turnIndex: 0, frameIndex: nextFrame };
+}

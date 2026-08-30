@@ -52,7 +52,7 @@ function writeSave(saveKey: string, data: EmulatorData) {
 export type RomSource = { kind: "url"; url: string } | { kind: "file"; file: File };
 
 interface NesPlayerProps {
-  subscribe: (fn: (msg: ControllerMessage) => void) => () => void;
+  subscribe: (fn: (msg: ControllerMessage, player: number) => void) => () => void;
   onExit: () => void;
   mii: Mii;
   title: string;

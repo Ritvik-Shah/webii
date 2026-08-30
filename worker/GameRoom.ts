@@ -1,15 +1,29 @@
 import { DurableObject } from "cloudflare:workers";
-import type { PresenceMessage, Role } from "../shared/protocol";
+import {
+  CLOSE_ROOM_FULL,
+  MAX_PLAYERS,
+  type AssignedMessage,
+  type PresenceMessage,
+  type Role,
+} from "../shared/protocol";
 
 interface Env {
   GAME_ROOM: DurableObjectNamespace<GameRoom>;
 }
 
 /**
- * Pure relay: forwards JSON text frames from the screen socket to the
- * controller socket and vice versa. Uses the WebSocket Hibernation API so an
- * idle paired room costs no compute between messages. No game logic lives
- * here for v1 -- that stays in the screen client.
+ * Relay between one screen and up to MAX_PLAYERS phones.
+ *
+ * The room owns player numbering: each controller socket is tagged with its
+ * slot, and every frame it sends is stamped with that number on the way to
+ * the screen -- so the screen can always tell who pressed what without
+ * trusting a phone to label itself. Screen-to-controller frames may carry a
+ * `to` field to reach one player instead of the whole room.
+ *
+ * Uses the WebSocket Hibernation API, so an idle room costs no compute
+ * between messages. The player numbers live on the socket tags rather than
+ * in memory, which is what lets a hibernated room wake up and still know
+ * who everyone is.
  */
 export class GameRoom extends DurableObject<Env> {
   private roomCode = "";
@@ -30,12 +44,34 @@ export class GameRoom extends DurableObject<Env> {
     const pair = new WebSocketPair();
     const [client, server] = Object.values(pair);
 
-    // Only one active connection per role -- a rejoin replaces the old one.
-    for (const existing of this.ctx.getWebSockets(role)) {
-      existing.close(4000, "replaced by new connection");
+    if (role === "screen") {
+      // Still exactly one screen; a rejoin replaces the old one.
+      for (const existing of this.ctx.getWebSockets("screen")) {
+        existing.close(4000, "replaced by new connection");
+      }
+      this.ctx.acceptWebSocket(server, ["screen"]);
+      this.broadcastPresence();
+      return new Response(null, { status: 101, webSocket: client });
     }
 
-    this.ctx.acceptWebSocket(server, [role]);
+    // A reconnecting phone asks for the slot it held before, so a dropped
+    // connection mid-game doesn't renumber everyone.
+    const wanted = Number(url.searchParams.get("want"));
+    const player = this.claimPlayerSlot(Number.isInteger(wanted) ? wanted : 0);
+
+    if (player === 0) {
+      // Accept, then close with a reason. Rejecting the upgrade outright
+      // surfaces in the browser as a generic network error, which the phone
+      // can't tell apart from being offline.
+      server.accept();
+      server.close(CLOSE_ROOM_FULL, "room is full");
+      return new Response(null, { status: 101, webSocket: client });
+    }
+
+    this.ctx.acceptWebSocket(server, ["controller", playerTag(player)]);
+
+    const assigned: AssignedMessage = { type: "assigned", player, roomCode: this.roomCode };
+    server.send(JSON.stringify(assigned));
     this.broadcastPresence();
 
     return new Response(null, { status: 101, webSocket: client });
@@ -45,8 +81,32 @@ export class GameRoom extends DurableObject<Env> {
     if (typeof message !== "string") return;
     const role = this.roleOf(ws);
     if (!role) return;
-    const targetRole: Role = role === "screen" ? "controller" : "screen";
-    for (const peer of this.ctx.getWebSockets(targetRole)) {
+
+    if (role === "controller") {
+      // Stamp the sender's player number before handing it to the screen.
+      const player = this.playerOf(ws);
+      let payload: string;
+      try {
+        payload = JSON.stringify({ ...JSON.parse(message), player });
+      } catch {
+        return; // malformed frame, drop it
+      }
+      for (const screen of this.ctx.getWebSockets("screen")) {
+        screen.send(payload);
+      }
+      return;
+    }
+
+    // Screen -> controllers, optionally addressed to a single player.
+    let to = 0;
+    try {
+      const parsed = JSON.parse(message) as { to?: number };
+      if (typeof parsed.to === "number") to = parsed.to;
+    } catch {
+      return;
+    }
+    const targets = to > 0 ? this.ctx.getWebSockets(playerTag(to)) : this.ctx.getWebSockets("controller");
+    for (const peer of targets) {
       peer.send(message);
     }
   }
@@ -60,6 +120,27 @@ export class GameRoom extends DurableObject<Env> {
     this.broadcastPresence();
   }
 
+  /**
+   * Grant `wanted` if that slot is free, otherwise the lowest free one.
+   * Returns 0 when every slot is taken.
+   */
+  private claimPlayerSlot(wanted: number): number {
+    const taken = new Set(this.connectedPlayers());
+    if (wanted >= 1 && wanted <= MAX_PLAYERS && !taken.has(wanted)) return wanted;
+    for (let player = 1; player <= MAX_PLAYERS; player++) {
+      if (!taken.has(player)) return player;
+    }
+    return 0;
+  }
+
+  private connectedPlayers(): number[] {
+    const players: number[] = [];
+    for (let player = 1; player <= MAX_PLAYERS; player++) {
+      if (this.ctx.getWebSockets(playerTag(player)).length > 0) players.push(player);
+    }
+    return players;
+  }
+
   private roleOf(ws: WebSocket): Role | null {
     const tags = this.ctx.getTags(ws);
     if (tags.includes("screen")) return "screen";
@@ -67,11 +148,21 @@ export class GameRoom extends DurableObject<Env> {
     return null;
   }
 
+  private playerOf(ws: WebSocket): number {
+    for (const tag of this.ctx.getTags(ws)) {
+      if (tag.startsWith("p")) {
+        const player = Number(tag.slice(1));
+        if (Number.isInteger(player)) return player;
+      }
+    }
+    return 0;
+  }
+
   private broadcastPresence() {
     const presence: PresenceMessage = {
       type: "presence",
       screenConnected: this.ctx.getWebSockets("screen").length > 0,
-      controllerConnected: this.ctx.getWebSockets("controller").length > 0,
+      players: this.connectedPlayers(),
       roomCode: this.roomCode,
     };
     const payload = JSON.stringify(presence);
@@ -79,4 +170,8 @@ export class GameRoom extends DurableObject<Env> {
       ws.send(payload);
     }
   }
+}
+
+function playerTag(player: number): string {
+  return `p${player}`;
 }

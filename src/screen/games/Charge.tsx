@@ -546,7 +546,9 @@ interface BannerState {
   text: string;
 }
 
-export function Charge({ send, subscribe, onExit, mii }: GameProps) {
+export function Charge({ send, subscribe, onExit, players }: GameProps) {
+  // These games are single-player; the host is whoever started them.
+  const mii = players[0].mii;
   const engineRef = useRef<EngineState>(createEngineState());
   const riderRef = useRef<HTMLDivElement | null>(null);
 

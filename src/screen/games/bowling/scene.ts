@@ -44,6 +44,9 @@ const GUIDE_DASH_COUNT = 46;
 
 export interface SceneView {
   shot: CameraShot;
+  /** Index into the `miis` the scene was built with: who is bowling now.
+   * The others go and stand on the neighbouring lanes. */
+  activeIndex: number;
   /** The lane-x line being played: where the ball sits in the bowler's hand,
    * where the aiming guide is drawn, and where the ball is released. The Mii
    * is offset sideways from it so its bowling hand lands on the line. */
@@ -295,11 +298,9 @@ function pinGeometry(): THREE.LatheGeometry {
   return new THREE.LatheGeometry(points, 28);
 }
 
-function ballMesh(color: string, envMap: THREE.Texture): THREE.Group {
+function ballMesh(color: string, envMap: THREE.Texture): { group: THREE.Group; material: THREE.MeshPhysicalMaterial } {
   const group = new THREE.Group();
-  const body = new THREE.Mesh(
-    new THREE.SphereGeometry(BALL_RADIUS, 44, 32),
-    new THREE.MeshPhysicalMaterial({
+  const material = new THREE.MeshPhysicalMaterial({
       color: new THREE.Color(color),
       roughness: 0.09,
       metalness: 0.0,
@@ -307,8 +308,8 @@ function ballMesh(color: string, envMap: THREE.Texture): THREE.Group {
       clearcoatRoughness: 0.04,
       envMap,
       envMapIntensity: 1.1,
-    }),
-  );
+  });
+  const body = new THREE.Mesh(new THREE.SphereGeometry(BALL_RADIUS, 44, 32), material);
   body.castShadow = true;
   group.add(body);
 
@@ -326,14 +327,14 @@ function ballMesh(color: string, envMap: THREE.Texture): THREE.Group {
     hole.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
     group.add(hole);
   }
-  return group;
+  return { group, material };
 }
 
 // ---------------------------------------------------------------------------
 // Scene
 // ---------------------------------------------------------------------------
 
-export function createBowlingScene(container: HTMLElement, mii: Mii): BowlingScene {
+export function createBowlingScene(container: HTMLElement, miis: Mii[]): BowlingScene {
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.shadowMap.enabled = true;
@@ -613,13 +614,13 @@ export function createBowlingScene(container: HTMLElement, mii: Mii): BowlingSce
   // --- player ball ------------------------------------------------------
   // Darker than the Mii's shirt it's derived from: at the ready pose the ball
   // sits right against the torso, and an exact colour match made it vanish.
-  const ballColor = shade(mii.shirtColor, -0.32);
-  const ball = ballMesh(ballColor, envMap);
+  const ballColorFor = (index: number) => shade(miis[index % miis.length].shirtColor, -0.32);
+  const { group: ball, material: ballMaterial } = ballMesh(ballColorFor(0), envMap);
   scene.add(ball);
-  const ballReflection = new THREE.Mesh(
-    track(new THREE.SphereGeometry(BALL_RADIUS, 28, 20)),
-    track(new THREE.MeshBasicMaterial({ color: new THREE.Color(ballColor), transparent: true, opacity: 0.3, depthWrite: false })),
+  const ballReflectionMat = track(
+    new THREE.MeshBasicMaterial({ color: new THREE.Color(ballColorFor(0)), transparent: true, opacity: 0.3, depthWrite: false }),
   );
+  const ballReflection = new THREE.Mesh(track(new THREE.SphereGeometry(BALL_RADIUS, 28, 20)), ballReflectionMat);
   ballReflection.renderOrder = 1;
   reflections.add(ballReflection);
   ball.traverse((child) => {
@@ -629,14 +630,23 @@ export function createBowlingScene(container: HTMLElement, mii: Mii): BowlingSce
     }
   });
 
-  // --- bowler -----------------------------------------------------------
-  const bowler = createMiiBowler(mii);
-  bowler.group.position.set(0, 0, 0.85);
-  scene.add(bowler.group);
+  // --- bowlers ----------------------------------------------------------
+  // One per player, all built up front: whoever is up stands on this lane
+  // and the rest wait on the neighbouring ones, so a four-player game looks
+  // like four friends at the alley rather than one Mii being recoloured.
+  const bowlers = miis.map((playerMii) => {
+    const built = createMiiBowler(playerMii);
+    scene.add(built.group);
+    return built;
+  });
 
   // --- neighbouring lanes ----------------------------------------------
-  const neighbours: MiiBowler[] = [];
-  const neighbourPhase: number[] = [];
+  /** Lane-x of each neighbouring lane a waiting player can be stood on,
+   * nearest first so a two-player game seats them side by side. */
+  const neighbourSpots: number[] = [];
+  const fillerBowlers: MiiBowler[] = [];
+  const idlePhase: number[] = [];
+  for (let i = 0; i < 8; i++) idlePhase.push(Math.random() * Math.PI * 2);
   for (const offset of [-1, 1, -2, 2]) {
     const centerX = offset * LANE_PITCH;
     const neighbourLane = new THREE.Mesh(track(new THREE.PlaneGeometry(LANE_HALF_WIDTH * 2, LANE_TOTAL_LENGTH)), laneMat);
@@ -666,15 +676,17 @@ export function createBowlingScene(container: HTMLElement, mii: Mii): BowlingSce
       reflections.add(mirrored);
     }
 
-    // Only the immediate neighbours get a visible Mii; further lanes are
-    // far enough away that the extra draw calls buy nothing.
-    if (Math.abs(offset) === 1) {
-      const other = createMiiBowler(randomMii(`neighbour-${offset}`));
-      other.group.position.set(centerX, 0, 0.3);
-      scene.add(other.group);
-      neighbours.push(other);
-      neighbourPhase.push(Math.random() * Math.PI * 2);
-    }
+    // Only the immediate neighbours are close enough for a Mii to be worth
+    // drawing; further lanes just get their static rack.
+    if (Math.abs(offset) === 1) neighbourSpots.push(centerX);
+  }
+
+  // Waiting players occupy the neighbouring lanes; if there aren't enough
+  // of them, strangers fill the rest so the alley never looks deserted.
+  for (let i = miis.length - 1; i < neighbourSpots.length; i++) {
+    const filler = createMiiBowler(randomMii(`neighbour-${i}`));
+    scene.add(filler.group);
+    fillerBowlers.push(filler);
   }
 
   const laneAccents = ["#c43b3b", "#3b82c4", "#f4a300", "#3bb54a", "#8a3bc4"];
@@ -768,14 +780,62 @@ export function createBowlingScene(container: HTMLElement, mii: Mii): BowlingSce
     }
   }
 
+  let lastActiveIndex = 0;
+
+  /** Gentle waiting-their-turn animation for anyone not currently bowling. */
+  function idlePose(who: MiiBowler, phase: number) {
+    const now = performance.now() / 1000;
+    who.setPose({
+      ...NEUTRAL_POSE,
+      armAngle: Math.sin(now * 1.1 + phase) * 0.22,
+      offArmAngle: Math.sin(now * 1.1 + phase + Math.PI) * 0.22,
+      yaw: Math.sin(now * 0.4 + phase) * 0.2,
+      headTurn: Math.sin(now * 0.31 + phase) * 0.35,
+    });
+  }
+
   const tmpAxis = new THREE.Vector3();
   const tmpQuat = new THREE.Quaternion();
   const upVector = new THREE.Vector3(0, 1, 0);
 
   function render(dt: number, sim: Simulation, view: SceneView) {
     // --- bowler + held ball ---
-    bowler.group.position.x = view.bowlerX - bowler.handOffsetX;
+    const activeIndex = view.activeIndex % bowlers.length;
+    const bowler = bowlers[activeIndex];
+    bowler.group.position.set(view.bowlerX - bowler.handOffsetX, 0, 0.85);
     bowler.setPose(view.pose);
+
+    if (activeIndex !== lastActiveIndex) {
+      // The ball belongs to whoever is up, so it takes their colour.
+      lastActiveIndex = activeIndex;
+      ballMaterial.color.set(ballColorFor(activeIndex));
+      ballReflectionMat.color.set(ballColorFor(activeIndex));
+    }
+
+    // Everyone waiting stands on a neighbouring lane, nearest first.
+    let spot = 0;
+    for (let i = 0; i < bowlers.length; i++) {
+      if (i === activeIndex) continue;
+      const waiting = bowlers[i];
+      if (spot < neighbourSpots.length) {
+        waiting.group.visible = true;
+        waiting.group.position.set(neighbourSpots[spot], 0, 0.3);
+        idlePose(waiting, idlePhase[i]);
+        spot += 1;
+      } else {
+        // More players than neighbouring lanes -- the rest sit this one out.
+        waiting.group.visible = false;
+      }
+    }
+    for (const filler of fillerBowlers) {
+      const hasRoom = spot < neighbourSpots.length;
+      filler.group.visible = hasRoom;
+      if (hasRoom) {
+        filler.group.position.set(neighbourSpots[spot], 0, 0.3);
+        idlePose(filler, idlePhase[spot + bowlers.length]);
+        spot += 1;
+      }
+    }
 
     if (!sim.ball.released) {
       bowler.handAnchor.getWorldPosition(ball.position);
@@ -836,19 +896,6 @@ export function createBowlingScene(container: HTMLElement, mii: Mii): BowlingSce
       }
     }
 
-    // --- neighbours idle sway ---
-    const now = performance.now() / 1000;
-    neighbours.forEach((other, i) => {
-      const phase = neighbourPhase[i];
-      other.setPose({
-        ...NEUTRAL_POSE,
-        armAngle: Math.sin(now * 1.1 + phase) * 0.22,
-        offArmAngle: Math.sin(now * 1.1 + phase + Math.PI) * 0.22,
-        yaw: Math.sin(now * 0.4 + phase) * 0.2,
-        headTurn: Math.sin(now * 0.31 + phase) * 0.35,
-      });
-    });
-
     // --- camera ---
     computeShot(view, sim);
     if (snapNext) {
@@ -874,8 +921,8 @@ export function createBowlingScene(container: HTMLElement, mii: Mii): BowlingSce
     },
     dispose() {
       observer.disconnect();
-      bowler.dispose();
-      for (const other of neighbours) other.dispose();
+      for (const built of bowlers) built.dispose();
+      for (const filler of fillerBowlers) filler.dispose();
       for (const item of disposables) item.dispose();
       envMap.dispose();
       renderer.dispose();

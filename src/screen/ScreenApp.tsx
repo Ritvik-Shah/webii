@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState, type ComponentType } from "react";
-import type { ControllerMessage, PresenceMessage } from "../../shared/protocol";
+import type { ControllerMessage, PresenceMessage, StampedControllerMessage } from "../../shared/protocol";
 import { isPresence } from "../../shared/protocol";
 import { createEventBus, type EventBus } from "../lib/eventBus";
 import { fetchNewRoomCode } from "../lib/roomCode";
@@ -10,7 +10,7 @@ import { DebugOverlay } from "./DebugOverlay";
 import { CHANNELS } from "./channels";
 import { MiiSelect } from "./mii/MiiSelect";
 import { MiiChannel } from "./mii/MiiChannel";
-import type { Mii } from "./mii/Mii";
+import type { PlayerInfo } from "./games/types";
 import { TargetPractice } from "./games/TargetPractice";
 import { Tanks } from "./games/Tanks";
 import { Charge } from "./games/Charge";
@@ -36,15 +36,16 @@ const GAME_SCREENS: Record<string, ComponentType<GameProps>> = {
 };
 
 type ScreenView =
+  | { kind: "lobby" }
   | { kind: "menu" }
   | { kind: "mii-channel" }
   | { kind: "mii-select"; channelId: string }
-  | { kind: "game"; channelId: string; mii: Mii };
+  | { kind: "game"; channelId: string; players: PlayerInfo[] };
 
 export function ScreenApp() {
   const [roomCode, setRoomCode] = useState<string | null>(null);
   const [presence, setPresence] = useState<PresenceMessage | null>(null);
-  const [view, setView] = useState<ScreenView>({ kind: "menu" });
+  const [view, setView] = useState<ScreenView>({ kind: "lobby" });
 
   const busRef = useRef<EventBus<ControllerMessage> | null>(null);
   if (!busRef.current) busRef.current = createEventBus<ControllerMessage>();
@@ -63,25 +64,31 @@ export function ScreenApp() {
     };
   }, []);
 
-  const onMessage = useCallback((msg: PresenceMessage | ControllerMessage) => {
+  const onMessage = useCallback((msg: PresenceMessage | StampedControllerMessage) => {
     if (isPresence(msg)) {
       setPresence(msg);
       return;
     }
+    const player = msg.player ?? 0;
     // HOME always returns to the Wii Menu, from any view (game or Mii
     // select), handled centrally here so individual screens don't each need
     // to listen for it.
     if (msg.type === "button" && msg.button === "HOME" && msg.state === "down") {
       setView({ kind: "menu" });
     }
-    busRef.current!.emit(msg);
+    busRef.current!.emit(msg as ControllerMessage, player);
   }, []);
 
-  const { connected, send } = useRoomSocket<PresenceMessage | ControllerMessage>({
+  const { connected, send } = useRoomSocket<PresenceMessage | StampedControllerMessage>({
     roomCode: roomCode ?? "",
     role: "screen",
     onMessage,
   });
+
+  const players = presence?.players ?? [];
+  // The lowest-numbered connected player drives shared screens (the lobby,
+  // the Wii Menu) so four remotes don't fight over one cursor.
+  const hostPlayer = players[0];
 
   const handleLaunch = useCallback((channelId: string) => {
     // The Mii Channel IS the "pick/make a Mii" experience -- routing it
@@ -94,26 +101,43 @@ export function ScreenApp() {
     }
   }, []);
 
-  const handleMiiSelected = useCallback((mii: Mii) => {
+  const handleMiiSelected = useCallback((picks: PlayerInfo[]) => {
     setView((current) => {
       if (current.kind !== "mii-select") return current;
-      return { kind: "game", channelId: current.channelId, mii };
+      return { kind: "game", channelId: current.channelId, players: picks };
     });
   }, []);
 
   const subscribe = busRef.current.subscribe;
 
+  // In the lobby, the host's A press starts the session. Kept here rather
+  // than inside PairingScreen so the lobby stays a pure display component.
+  useEffect(() => {
+    if (view.kind !== "lobby" || hostPlayer === undefined) return;
+    return subscribe((msg, player) => {
+      if (player !== hostPlayer) return;
+      if (msg.type === "button" && msg.button === "A" && msg.state === "down") {
+        setView({ kind: "menu" });
+      }
+    });
+  }, [view.kind, hostPlayer, subscribe]);
+
+  // Everyone left: fall back to the lobby so the room can be re-joined.
+  useEffect(() => {
+    if (players.length === 0 && view.kind !== "lobby") setView({ kind: "lobby" });
+  }, [players.length, view.kind]);
+
   const renderMain = () => {
     if (roomCode === null) {
       return <div className="screen-loading">Loading Webii…</div>;
     }
-    if (!presence?.controllerConnected) {
-      return <PairingScreen roomCode={roomCode} screenSocketConnected={connected} />;
+    if (view.kind === "lobby" || players.length === 0) {
+      return <PairingScreen roomCode={roomCode} screenSocketConnected={connected} players={players} />;
     }
 
     switch (view.kind) {
       case "menu":
-        return <WiiMenu send={send} subscribe={subscribe} onLaunch={handleLaunch} />;
+        return <WiiMenu send={send} subscribe={subscribe} onLaunch={handleLaunch} hostPlayer={hostPlayer} />;
       case "mii-channel":
         return <MiiChannel subscribe={subscribe} onExit={() => setView({ kind: "menu" })} />;
       case "mii-select": {
@@ -122,7 +146,8 @@ export function ScreenApp() {
           <MiiSelect
             subscribe={subscribe}
             channelTitle={channel?.title ?? "the game"}
-            onSelect={handleMiiSelected}
+            players={players}
+            onDone={handleMiiSelected}
           />
         );
       }
@@ -131,7 +156,12 @@ export function ScreenApp() {
         if (!GameScreen) return null;
         return (
           <Suspense fallback={<div className="screen-loading">Loading channel…</div>}>
-            <GameScreen send={send} subscribe={subscribe} onExit={() => setView({ kind: "menu" })} mii={view.mii} />
+            <GameScreen
+              send={send}
+              subscribe={subscribe}
+              onExit={() => setView({ kind: "menu" })}
+              players={view.players}
+            />
           </Suspense>
         );
       }
@@ -143,7 +173,7 @@ export function ScreenApp() {
   return (
     <div className="screen-root">
       {renderMain()}
-      {presence?.controllerConnected && <DebugOverlay subscribe={subscribe} />}
+      {players.length > 0 && <DebugOverlay subscribe={subscribe} />}
     </div>
   );
 }

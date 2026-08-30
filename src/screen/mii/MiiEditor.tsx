@@ -6,7 +6,7 @@ import { playHoverTick, playButtonBlip, playLaunchChime } from "../../lib/sound"
 import "./mii-editor.css";
 
 interface MiiEditorProps {
-  subscribe: (fn: (msg: ControllerMessage) => void) => () => void;
+  subscribe: (fn: (msg: ControllerMessage, player: number) => void) => () => void;
   mii: Mii;
   onSave: (mii: Mii) => void;
   onBack: () => void;

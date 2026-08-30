@@ -70,3 +70,43 @@
   opacity: 0.75;
   font-size: clamp(0.85rem, 1.4vw, 1rem);
 }
+
+/* ---------- Multi-player pick queue ---------- */
+
+.mii-select-queue {
+  display: flex;
+  gap: 0.6rem;
+  margin-bottom: 0.9rem;
+}
+
+.mii-select-queue-item {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.3rem 0.7rem 0.3rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.55);
+  border: 2px solid transparent;
+  min-height: 2.6rem;
+}
+
+.mii-select-queue-item.is-active {
+  border-color: #f4a300;
+  background: #fff6e0;
+}
+
+.mii-select-queue-item.is-done {
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.mii-select-queue-label {
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: #16324a;
+}
+
+.mii-select-queue-wait {
+  width: 34px;
+  text-align: center;
+  color: rgba(22, 50, 74, 0.4);
+}

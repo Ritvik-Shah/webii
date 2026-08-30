@@ -31,6 +31,7 @@ import {
   currentScore,
   emptyCard,
   frameTotals,
+  nextTurn,
   rollGlyph,
   rollsRemainingInFrame,
   type Frame,
@@ -95,7 +96,12 @@ interface GameState {
   /** Seconds spent in the current phase. */
   timer: number;
   sim: Simulation;
-  card: Frame[];
+  /** One scorecard per player, indexed the same as `players`. */
+  cards: Frame[][];
+  /** Whose turn it is, as an index into `players`. */
+  turnIndex: number;
+  /** The frame everyone is on. Each player bowls this frame in turn before
+   * anyone moves on to the next, exactly like a real league sheet. */
   frameIndex: number;
   standing: number[];
   /** True when the pins in front of this ball are a full, freshly set rack --
@@ -129,7 +135,8 @@ interface GameState {
 }
 
 interface Hud {
-  card: Frame[];
+  cards: Frame[][];
+  turnIndex: number;
   frameIndex: number;
   ballNumber: number;
   banner: string | null;
@@ -139,12 +146,13 @@ interface Hud {
   cameraView: CameraView;
 }
 
-export function Bowling({ send, subscribe, onExit, mii }: GameProps) {
+export function Bowling({ send, subscribe, onExit, players }: GameProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<BowlingScene | null>(null);
 
   const [hud, setHud] = useState<Hud>({
-    card: emptyCard(),
+    cards: players.map(() => emptyCard()),
+    turnIndex: 0,
     frameIndex: 0,
     ballNumber: 1,
     banner: null,
@@ -160,7 +168,8 @@ export function Bowling({ send, subscribe, onExit, mii }: GameProps) {
       phase: "intro",
       timer: 0,
       sim: createSimulation(ALL_PINS),
-      card: emptyCard(),
+      cards: players.map(() => emptyCard()),
+      turnIndex: 0,
       frameIndex: 0,
       standing: ALL_PINS,
       freshRack: true,
@@ -185,6 +194,8 @@ export function Bowling({ send, subscribe, onExit, mii }: GameProps) {
 
   const onExitRef = useRef(onExit);
   onExitRef.current = onExit;
+  const playersRef = useRef(players);
+  playersRef.current = players;
   const sendRef = useRef(send);
   sendRef.current = send;
 
@@ -200,9 +211,10 @@ export function Bowling({ send, subscribe, onExit, mii }: GameProps) {
   const pushHud = useCallback((game: GameState, extra?: Partial<Hud>) => {
     setHud((prev) => ({
       ...prev,
-      card: game.card.map((frame) => [...frame]),
+      cards: game.cards.map((card) => card.map((frame) => [...frame])),
+      turnIndex: game.turnIndex,
       frameIndex: game.frameIndex,
-      ballNumber: game.card[game.frameIndex].length + 1,
+      ballNumber: game.cards[game.turnIndex][game.frameIndex].length + 1,
       phase: game.phase,
       aimMode: game.aimMode,
       cameraView: game.cameraView,
@@ -210,11 +222,24 @@ export function Bowling({ send, subscribe, onExit, mii }: GameProps) {
     }));
   }, []);
 
+  /** Tell every phone whose turn it is, so each one can show "Your turn" or
+   * who they're waiting on. */
+  const announceTurn = useCallback(
+    (game: GameState) => {
+      sendRef.current({
+        type: "turn",
+        player: playersRef.current[game.turnIndex]?.player ?? 0,
+        label: `Frame ${game.frameIndex + 1}`,
+      });
+    },
+    [],
+  );
+
   /** Count the roll, update the card, and decide what the banner should say. */
   const scoreRoll = useCallback(
     (game: GameState) => {
       const knocked = countPinsDown(game.sim);
-      const frame = game.card[game.frameIndex];
+      const frame = game.cards[game.turnIndex][game.frameIndex];
       frame.push(knocked);
 
       const clearedRack = standingPinIds(game.sim).length === 0;
@@ -252,16 +277,21 @@ export function Bowling({ send, subscribe, onExit, mii }: GameProps) {
   /** Advance to the next ball or frame, and work out what to re-rack. */
   const advanceAfterResult = useCallback(
     (game: GameState) => {
-      const remaining = rollsRemainingInFrame(game.card, game.frameIndex);
+      const remaining = rollsRemainingInFrame(game.cards[game.turnIndex], game.frameIndex);
 
       if (remaining === 0) {
-        if (game.frameIndex === FRAME_COUNT - 1) {
+        // This player's frame is done: pass the lane on. Once everyone has
+        // bowled this frame, the whole room moves to the next one.
+        const next = nextTurn({ turnIndex: game.turnIndex, frameIndex: game.frameIndex }, game.cards.length);
+        if (next === null) {
           setPhase(game, "final");
           game.celebrating = null;
+          sendRef.current({ type: "turn", player: 0 });
           pushHud(game, { banner: null, bannerKind: null });
           return;
         }
-        game.frameIndex += 1;
+        game.turnIndex = next.turnIndex;
+        game.frameIndex = next.frameIndex;
         game.standing = ALL_PINS;
         game.freshRack = true;
       } else {
@@ -285,6 +315,7 @@ export function Bowling({ send, subscribe, onExit, mii }: GameProps) {
       setPhase(game, game.standing.length === 10 ? "intro" : "aim");
       game.shot = game.phase === "intro" ? "intro" : "aim";
       sceneRef.current?.cutCamera();
+      announceTurn(game);
       pushHud(game, { banner: null, bannerKind: null });
     },
     [pushHud, setPhase],
@@ -434,7 +465,7 @@ export function Bowling({ send, subscribe, onExit, mii }: GameProps) {
 
     let scene: BowlingScene;
     try {
-      scene = createBowlingScene(container, mii);
+      scene = createBowlingScene(container, playersRef.current.map((p) => p.mii));
     } catch {
       // No WebGL available (rare, but a locked-down browser or a headless
       // display can refuse a context). Bail back to the menu rather than
@@ -465,6 +496,7 @@ export function Bowling({ send, subscribe, onExit, mii }: GameProps) {
 
       const view: SceneView = {
         shot: game.shot,
+        activeIndex: game.turnIndex,
         bowlerX: game.bowlerX,
         aimAngle: game.aimAngle,
         showGuide: game.phase === "aim" || game.phase === "wind",
@@ -599,7 +631,7 @@ export function Bowling({ send, subscribe, onExit, mii }: GameProps) {
       scene.dispose();
       sceneRef.current = null;
     };
-  }, [mii, advanceAfterResult, releaseBall, scoreRoll, setPhase, updatePose]);
+  }, [advanceAfterResult, releaseBall, scoreRoll, setPhase, updatePose, announceTurn]);
 
   // -------------------------------------------------------------------------
   // Controller input
@@ -608,8 +640,14 @@ export function Bowling({ send, subscribe, onExit, mii }: GameProps) {
   useEffect(() => {
     const bDown = { current: false };
 
-    return subscribe((msg) => {
+    return subscribe((msg, player) => {
       const game = gameRef.current!;
+
+      // Only the player whose turn it is drives the game. The exception is
+      // the game-over screen, where anyone can press A to head back.
+      const activePlayer = playersRef.current[game.turnIndex]?.player;
+      const isActive = playersRef.current.length <= 1 || player === activePlayer;
+      if (!isActive && !(game.phase === "final" && msg.type === "button" && msg.button === "A")) return;
 
       if (msg.type === "motion") {
         // The only thing the phone's motion is used for is how hard the
@@ -713,6 +751,13 @@ export function Bowling({ send, subscribe, onExit, mii }: GameProps) {
     });
   }, [subscribe, setPhase, pushHud]);
 
+  // Announce the opening turn once the room is listening, so every phone
+  // starts out showing either "Your turn" or who they're waiting on.
+  useEffect(() => {
+    announceTurn(gameRef.current!);
+    return () => sendRef.current({ type: "turn", player: 0 });
+  }, [announceTurn]);
+
   // Auto-return to the Wii Menu a while after the game ends; HOME (handled
   // centrally by ScreenApp) and A both work immediately.
   useEffect(() => {
@@ -723,41 +768,67 @@ export function Bowling({ send, subscribe, onExit, mii }: GameProps) {
 
   // -------------------------------------------------------------------------
 
-  const totals = frameTotals(hud.card);
-  const total = currentScore(hud.card);
+  const scores = hud.cards.map((card) => currentScore(card));
+  const best = Math.max(...scores);
+  const multiplayer = players.length > 1;
+  const activePlayer = players[hud.turnIndex];
 
   return (
     <div className="bowling-root">
       <div className="bowling-viewport" ref={containerRef} />
 
-      <div className="bowling-scorecard">
-        {hud.card.map((_frame, i) => {
-          const isTenth = i === FRAME_COUNT - 1;
-          const boxes = isTenth ? [0, 1, 2] : [0, 1];
+      <div className={`bowling-scorecard${multiplayer ? " is-multi" : ""}`}>
+        {hud.cards.map((card, playerIndex) => {
+          const totals = frameTotals(card);
+          const isUp = playerIndex === hud.turnIndex && hud.phase !== "final";
           return (
-            <div key={i} className={`bowling-frame${i === hud.frameIndex ? " is-active" : ""}${isTenth ? " is-tenth" : ""}`}>
-              <div className="bowling-frame-number">{i + 1}</div>
-              <div className="bowling-frame-rolls">
-                {boxes.map((rollIndex) => (
-                  <span key={rollIndex} className="bowling-roll">
-                    {rollGlyph(hud.card, i, rollIndex)}
-                  </span>
-                ))}
+            <div key={players[playerIndex].player} className={`bowling-card-row${isUp ? " is-up" : ""}`}>
+              {multiplayer && (
+                <div className="bowling-card-who">
+                  <span className="bowling-card-player">P{players[playerIndex].player}</span>
+                  <span className="bowling-card-name">{players[playerIndex].mii.name}</span>
+                </div>
+              )}
+              {card.map((_frame, i) => {
+                const isTenth = i === FRAME_COUNT - 1;
+                const boxes = isTenth ? [0, 1, 2] : [0, 1];
+                const active = isUp && i === hud.frameIndex;
+                return (
+                  <div key={i} className={`bowling-frame${active ? " is-active" : ""}${isTenth ? " is-tenth" : ""}`}>
+                    {playerIndex === 0 && <div className="bowling-frame-number">{i + 1}</div>}
+                    <div className="bowling-frame-rolls">
+                      {boxes.map((rollIndex) => (
+                        <span key={rollIndex} className="bowling-roll">
+                          {rollGlyph(card, i, rollIndex)}
+                        </span>
+                      ))}
+                    </div>
+                    <div className="bowling-frame-total">{totals[i] ?? ""}</div>
+                  </div>
+                );
+              })}
+              <div className="bowling-grand-total">
+                {!multiplayer && <span className="bowling-grand-label">Total</span>}
+                <span className="bowling-grand-value">{scores[playerIndex]}</span>
               </div>
-              <div className="bowling-frame-total">{totals[i] ?? ""}</div>
             </div>
           );
         })}
-        <div className="bowling-grand-total">
-          <span className="bowling-grand-label">Total</span>
-          <span className="bowling-grand-value">{total}</span>
-        </div>
       </div>
 
       <div className="bowling-status">
         <span className="bowling-status-frame">Frame {hud.frameIndex + 1}</span>
-        <span className="bowling-status-ball">Ball {hud.ballNumber}</span>
+        <span className="bowling-status-ball">
+          {multiplayer && activePlayer ? `Player ${activePlayer.player} · Ball ${hud.ballNumber}` : `Ball ${hud.ballNumber}`}
+        </span>
       </div>
+
+      {multiplayer && hud.phase === "intro" && activePlayer && (
+        <div className="bowling-turncall">
+          <span className="bowling-turncall-player">Player {activePlayer.player}</span>
+          <span className="bowling-turncall-name">{activePlayer.mii.name}, you're up</span>
+        </div>
+      )}
 
       {hud.phase === "aim" && (
         <div className="bowling-aimpanel">
@@ -786,10 +857,35 @@ export function Bowling({ send, subscribe, onExit, mii }: GameProps) {
         <div className="bowling-final">
           <div className="bowling-final-card">
             <h2 className="bowling-final-title">Game Over</h2>
-            <div className="bowling-final-score">{total}</div>
-            <p className="bowling-final-note">
-              {total === 300 ? "A perfect game!" : total >= 200 ? "Fantastic bowling!" : total >= 130 ? "Nice game!" : "Good game!"}
-            </p>
+            {multiplayer ? (
+              <ol className="bowling-results">
+                {players
+                  .map((info, i) => ({ info, score: scores[i] }))
+                  .sort((a, b) => b.score - a.score)
+                  .map(({ info, score }, rank) => (
+                    <li key={info.player} className={`bowling-result${score === best ? " is-winner" : ""}`}>
+                      <span className="bowling-result-rank">{rank + 1}</span>
+                      <span className="bowling-result-who">
+                        P{info.player} · {info.mii.name}
+                      </span>
+                      <span className="bowling-result-score">{score}</span>
+                    </li>
+                  ))}
+              </ol>
+            ) : (
+              <>
+                <div className="bowling-final-score">{scores[0]}</div>
+                <p className="bowling-final-note">
+                  {scores[0] === 300
+                    ? "A perfect game!"
+                    : scores[0] >= 200
+                      ? "Fantastic bowling!"
+                      : scores[0] >= 130
+                        ? "Nice game!"
+                        : "Good game!"}
+                </p>
+              </>
+            )}
             <p className="bowling-final-hint">Press A to return to the Wii Menu</p>
           </div>
         </div>

@@ -446,7 +446,9 @@ function drawReticle(ctx: CanvasRenderingContext2D, x: number, y: number) {
 
 // --- Component ----------------------------------------------------------
 
-export function Tanks({ send: _send, subscribe, onExit, mii }: GameProps) {
+export function Tanks({ send: _send, subscribe, onExit, players }: GameProps) {
+  // These games are single-player; the host is whoever started them.
+  const mii = players[0].mii;
   const [phase, setPhaseState] = useState<Phase>("playing");
   const [lives, setLivesState] = useState(START_LIVES);
   const [levelIndex, setLevelIndexState] = useState(0);

@@ -1,17 +1,31 @@
 import type { ControllerMessage } from "../../../shared/protocol";
 import type { Mii } from "../mii/Mii";
 
-/** Every mini-game gets the same things: a way to talk to the phone, a way
- * to listen to it, a way to hand control back to the Wii Menu, and the
- * player's chosen Mii (picked on the Mii Select screen before the game
- * mounts) to render in-scene. */
+/** One seated player: their room slot (1-4) and the Mii they picked on the
+ * Mii Select screen before the game mounted. */
+export interface PlayerInfo {
+  player: number;
+  mii: Mii;
+}
+
+/** Every mini-game gets the same things: a way to talk to the phones, a way
+ * to listen to them, a way to hand control back to the Wii Menu, and who is
+ * playing. */
 export interface GameProps {
+  /** Broadcast to every phone, or add `to: <player>` to reach just one. */
   send: (msg: object) => void;
-  subscribe: (fn: (msg: ControllerMessage) => void) => () => void;
+  /**
+   * Controller messages, with the sending player's number as a second
+   * argument. Handlers that don't care who pressed what can ignore it and
+   * respond to every remote -- which is what the single-player games do.
+   */
+  subscribe: (fn: (msg: ControllerMessage, player: number) => void) => () => void;
   /** Call when the player has explicitly asked to leave (e.g. an in-game "A
    * to return to menu" prompt after a match ends). HOME always exits too,
    * but that's handled centrally in ScreenApp -- games don't need to listen
    * for it themselves. */
   onExit: () => void;
-  mii: Mii;
+  /** In room-join order, so `players[0]` is the host and a solo game can
+   * simply use it. Always at least one entry. */
+  players: PlayerInfo[];
 }

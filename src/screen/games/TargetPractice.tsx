@@ -534,7 +534,9 @@ interface FinalStats {
   bestCombo: number;
 }
 
-export function TargetPractice({ send: _send, subscribe, onExit, mii }: GameProps) {
+export function TargetPractice({ send: _send, subscribe, onExit, players }: GameProps) {
+  // These games are single-player; the host is whoever started them.
+  const mii = players[0].mii;
   const [stage, setStage] = useState(1);
   const [phase, setPhase] = useState<Phase>("playing");
   const [paused, setPaused] = useState(false);

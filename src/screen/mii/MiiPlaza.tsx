@@ -6,7 +6,7 @@ import { MiiAvatar } from "./MiiAvatar";
 import "./mii-plaza.css";
 
 interface MiiPlazaProps {
-  subscribe: (fn: (msg: ControllerMessage) => void) => () => void;
+  subscribe: (fn: (msg: ControllerMessage, player: number) => void) => () => void;
   roster: Mii[];
   onSelectMii: (mii: Mii) => void;
   onNewMii: () => void;

@@ -7,14 +7,16 @@ import { playLaunchChime, playButtonBlip } from "../lib/sound";
 
 interface WiiMenuProps {
   send: (msg: object) => void;
-  subscribe: (fn: (msg: ControllerMessage) => void) => () => void;
+  subscribe: (fn: (msg: ControllerMessage, player: number) => void) => () => void;
   onLaunch: (channelId: string) => void;
+  /** Only this player's remote drives the menu cursor. */
+  hostPlayer?: number;
 }
 
 const GRID_COLS = 4;
 const GRID_ROWS = 3;
 
-export function WiiMenu({ subscribe, onLaunch }: WiiMenuProps) {
+export function WiiMenu({ subscribe, onLaunch, hostPlayer }: WiiMenuProps) {
   const [launchingIndex, setLaunchingIndex] = useState<number | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const launchTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -52,7 +54,7 @@ export function WiiMenu({ subscribe, onLaunch }: WiiMenuProps) {
     };
   }, []);
 
-  const { cursorRef, gridRef, hoveredIndex } = usePointerGrid(subscribe, GRID_COLS, GRID_ROWS, launchChannel);
+  const { cursorRef, gridRef, hoveredIndex } = usePointerGrid(subscribe, GRID_COLS, GRID_ROWS, launchChannel, hostPlayer);
 
   return (
     <div className="wii-menu">

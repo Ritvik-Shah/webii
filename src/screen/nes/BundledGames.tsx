@@ -6,7 +6,8 @@ import { NesPlayer } from "./NesPlayer";
 // their files are placed at /public/roms/. Wired but not yet linked from a
 // menu channel -- see channels.ts, both still marked "soon".
 
-export function NesGame1({ subscribe, onExit, mii }: GameProps) {
+export function NesGame1({ subscribe, onExit, players }: GameProps) {
+  const mii = players[0].mii;
   return (
     <NesPlayer
       subscribe={subscribe}
@@ -19,7 +20,8 @@ export function NesGame1({ subscribe, onExit, mii }: GameProps) {
   );
 }
 
-export function NesGame2({ subscribe, onExit, mii }: GameProps) {
+export function NesGame2({ subscribe, onExit, players }: GameProps) {
+  const mii = players[0].mii;
   return (
     <NesPlayer
       subscribe={subscribe}

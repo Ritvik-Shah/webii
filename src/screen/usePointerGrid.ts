@@ -32,10 +32,14 @@ function clamp(value: number, min: number, max: number) {
  * copy-pasted per screen.
  */
 export function usePointerGrid(
-  subscribe: (fn: (msg: ControllerMessage) => void) => () => void,
+  subscribe: (fn: (msg: ControllerMessage, player: number) => void) => () => void,
   cols: number,
   rows: number,
   onSelect: (index: number) => void,
+  /** When set, only this player's remote drives the cursor -- everyone
+   * else's input is ignored. Used for the host-driven Wii Menu and for
+   * taking Mii picks one player at a time. */
+  forPlayer?: number,
 ): { cursorRef: RefObject<HTMLDivElement | null>; gridRef: RefObject<HTMLDivElement | null>; hoveredIndex: number | null } {
   const cursorRef = useRef<HTMLDivElement | null>(null);
   const gridRef = useRef<HTMLDivElement | null>(null);
@@ -80,7 +84,8 @@ export function usePointerGrid(
       }
     }
 
-    function handler(msg: ControllerMessage) {
+    function handler(msg: ControllerMessage, player: number) {
+      if (forPlayer !== undefined && player !== forPlayer) return;
       switch (msg.type) {
         case "pointer": {
           const nextX = clamp(50 + msg.ox * POINTER_SENSITIVITY, 0, 100);
@@ -109,7 +114,7 @@ export function usePointerGrid(
     }
 
     return subscribe(handler);
-  }, [subscribe, cols, rows]);
+  }, [subscribe, cols, rows, forPlayer]);
 
   return { cursorRef, gridRef, hoveredIndex };
 }
@@ -125,12 +130,14 @@ export function usePointerGrid(
  * as `usePointerGrid`.
  */
 export function usePointerPosition(
-  subscribe: (fn: (msg: ControllerMessage) => void) => () => void,
+  subscribe: (fn: (msg: ControllerMessage, player: number) => void) => () => void,
+  forPlayer?: number,
 ): RefObject<{ x: number; y: number }> {
   const posRef = useRef({ x: 50, y: 50 });
 
   useEffect(() => {
-    return subscribe((msg) => {
+    return subscribe((msg, player) => {
+      if (forPlayer !== undefined && player !== forPlayer) return;
       if (msg.type === "pointer") {
         posRef.current = {
           x: clamp(50 + msg.ox * POINTER_SENSITIVITY, 0, 100),
@@ -140,7 +147,7 @@ export function usePointerPosition(
         posRef.current = { x: 50, y: 50 };
       }
     });
-  }, [subscribe]);
+  }, [subscribe, forPlayer]);
 
   return posRef;
 }

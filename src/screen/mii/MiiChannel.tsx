@@ -6,7 +6,7 @@ import { MiiPlaza } from "./MiiPlaza";
 import { MiiEditor } from "./MiiEditor";
 
 interface MiiChannelProps {
-  subscribe: (fn: (msg: ControllerMessage) => void) => () => void;
+  subscribe: (fn: (msg: ControllerMessage, player: number) => void) => () => void;
   onExit: () => void;
 }
 

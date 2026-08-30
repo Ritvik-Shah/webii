@@ -1,15 +1,30 @@
 import type { TouchEvent } from "react";
-import type { ButtonName } from "../../shared/protocol";
+import type { ButtonName, TurnMessage } from "../../shared/protocol";
 
 interface WiimoteProps {
   connected: boolean;
   screenConnected: boolean;
   send: (msg: object) => void;
   roomCode: string;
+  /** This phone's player slot, 0 until the room has assigned one. */
+  player: number;
+  /** Whose turn the screen last said it was, or null outside a turn-based game. */
+  turn: TurnMessage | null;
   onRecenter: () => void;
 }
 
-export default function Wiimote({ connected, screenConnected, send, roomCode, onRecenter }: WiimoteProps) {
+export default function Wiimote({
+  connected,
+  screenConnected,
+  send,
+  roomCode,
+  player,
+  turn,
+  onRecenter,
+}: WiimoteProps) {
+  // `turn.player === 0` means nobody is up (a menu or a results screen), so
+  // the remote stays fully live rather than showing a misleading "waiting".
+  const waitingOnSomeoneElse = turn !== null && turn.player !== 0 && turn.player !== player;
   function press(button: ButtonName) {
     send({ type: "button", button, state: "down" });
     if (navigator.vibrate) navigator.vibrate(10);
@@ -47,6 +62,7 @@ export default function Wiimote({ connected, screenConnected, send, roomCode, on
     <div className="wiimote">
       <div className="wiimote-status">
         <span>Room {roomCode}</span>
+        {player > 0 && <span className="wiimote-player">Player {player}</span>}
         <span className={connected ? "status-ok" : "status-bad"}>
           {connected ? "Connected" : "Reconnecting…"}
         </span>
@@ -54,6 +70,13 @@ export default function Wiimote({ connected, screenConnected, send, roomCode, on
           {screenConnected ? "Screen paired" : "Waiting for screen…"}
         </span>
       </div>
+
+      {turn !== null && turn.player !== 0 && (
+        <div className={`wiimote-turn${waitingOnSomeoneElse ? " is-waiting" : " is-yours"}`}>
+          {waitingOnSomeoneElse ? `Player ${turn.player}'s turn` : "Your turn!"}
+          {turn.label ? <span className="wiimote-turn-label">{turn.label}</span> : null}
+        </div>
+      )}
 
       <div className="wiimote-body">
         <div className="wiimote-top-row">

@@ -5,10 +5,27 @@
 
 export type Role = "screen" | "controller";
 
+/** A room seats one screen and up to this many phones, numbered from 1. */
+export const MAX_PLAYERS = 4;
+
 export interface PresenceMessage {
   type: "presence";
   screenConnected: boolean;
-  controllerConnected: boolean;
+  /** Player numbers currently connected, ascending. Empty means nobody has
+   * paired a phone yet. */
+  players: number[];
+  roomCode: string;
+}
+
+/**
+ * Sent to a controller alone, right after it connects, telling it which
+ * player slot it owns. The phone remembers this so a dropped connection
+ * reclaims the same slot rather than shuffling everyone's player number
+ * mid-game -- see `wantedPlayer` in useRoomSocket.
+ */
+export interface AssignedMessage {
+  type: "assigned";
+  player: number;
   roomCode: string;
 }
 
@@ -77,6 +94,14 @@ export type ControllerMessage =
   | PingMessage
   | PongMessage;
 
+/**
+ * What the screen actually receives: the controller's own message with the
+ * sending player's number stamped on by the GameRoom. The stamp is added
+ * server-side rather than by the phone so it can't drift out of sync with
+ * the slot the room actually assigned.
+ */
+export type StampedControllerMessage = ControllerMessage & { player?: number };
+
 export interface GameStateMessage {
   type: "game-state";
   channel: string;
@@ -88,13 +113,33 @@ export interface HapticMessage {
   pattern: number[];
 }
 
-/** Screen -> controller. */
-export type ScreenMessage = GameStateMessage | HapticMessage | PingMessage | PongMessage;
+/** Screen -> controller: whose turn it is, so every phone can show either
+ * "Your turn" or who they're waiting on. */
+export interface TurnMessage {
+  type: "turn";
+  /** Player number now in control, or 0 when nobody is (menus, results). */
+  player: number;
+  /** Short label for the phone to display, e.g. "Frame 3". */
+  label?: string;
+}
+
+/** Screen -> controller. Setting `to` routes the message to that one player
+ * instead of broadcasting it to every phone in the room. */
+export type ScreenMessage = (GameStateMessage | HapticMessage | TurnMessage | PingMessage | PongMessage) & {
+  to?: number;
+};
 
 export type RelayMessage = ControllerMessage | ScreenMessage;
 
-export type ServerMessage = PresenceMessage;
+export type ServerMessage = PresenceMessage | AssignedMessage;
 
 export function isPresence(msg: unknown): msg is PresenceMessage {
   return !!msg && typeof msg === "object" && (msg as { type?: string }).type === "presence";
 }
+
+export function isAssigned(msg: unknown): msg is AssignedMessage {
+  return !!msg && typeof msg === "object" && (msg as { type?: string }).type === "assigned";
+}
+
+/** WebSocket close code the room uses when every player slot is taken. */
+export const CLOSE_ROOM_FULL = 4001;

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import type { ButtonName, ControllerMessage } from "../../shared/protocol";
 
 interface DebugOverlayProps {
-  subscribe: (fn: (msg: ControllerMessage) => void) => () => void;
+  subscribe: (fn: (msg: ControllerMessage, player: number) => void) => () => void;
 }
 
 const BUTTONS: ButtonName[] = ["UP", "DOWN", "LEFT", "RIGHT", "A", "B", "ONE", "TWO", "HOME"];

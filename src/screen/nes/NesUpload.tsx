@@ -22,7 +22,8 @@ async function hashFile(file: File): Promise<string> {
  * so re-loading the same ROM later (even a fresh upload of the same file)
  * resumes the same save, while a different file gets its own slot.
  */
-export function NesUpload({ subscribe, onExit, mii }: GameProps) {
+export function NesUpload({ subscribe, onExit, players }: GameProps) {
+  const mii = players[0].mii;
   const [file, setFile] = useState<File | null>(null);
   const [saveKey, setSaveKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);

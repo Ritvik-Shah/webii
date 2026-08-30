@@ -46,7 +46,7 @@ interface EjsEmulatorWindow extends Window {
 }
 
 interface NdsPlayerProps {
-  subscribe: (fn: (msg: ControllerMessage) => void) => () => void;
+  subscribe: (fn: (msg: ControllerMessage, player: number) => void) => () => void;
   onExit: () => void;
   mii: Mii;
   title: string;

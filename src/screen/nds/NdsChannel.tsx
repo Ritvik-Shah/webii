@@ -18,7 +18,8 @@ const ROM_SLOT_KEY = "nds-rom";
  * The file is never sent anywhere -- it's read straight into a blob: URL
  * handed to the local NdsPlayer iframe.
  */
-export function NdsChannel({ subscribe, onExit, mii }: GameProps) {
+export function NdsChannel({ subscribe, onExit, players }: GameProps) {
+  const mii = players[0].mii;
   const [romFile, setRomFile] = useState<File | null>(null);
   const [restoring, setRestoring] = useState(true);
 

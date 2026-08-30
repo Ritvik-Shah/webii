@@ -803,7 +803,7 @@ function ChargeRun({ subscribe, send, mii, onFinish }: RoundProps) {
  * Charge! takes turns: each player rides one timed run, the turn passes when
  * their clock runs out, and the highest score wins. Solo play is unchanged.
  */
-export function Charge({ send, subscribe, onExit, players }: GameProps) {
+export function Charge({ send, subscribe, onExit, players, publish }: GameProps) {
   return (
     <TurnRounds
       players={players}
@@ -812,6 +812,7 @@ export function Charge({ send, subscribe, onExit, players }: GameProps) {
       onExit={onExit}
       title="Charge!"
       scoreSuffix="pts"
+      publish={publish}
       renderRound={(round) => <ChargeRun {...round} />}
     />
   );

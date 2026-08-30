@@ -51,6 +51,9 @@ export interface PinState {
 export interface Simulation {
   ball: BallState;
   pins: PinState[];
+  /** Leftover time carried between frames so every physics step is exactly
+   * FIXED_DT long, whatever the display is doing. */
+  accumulator: number;
 }
 
 export interface StepEvents {
@@ -66,10 +69,21 @@ const DOWN_TILT = Math.PI / 2 - 0.2;
 const SETTLED_TILT_EPS = 0.02;
 const SETTLED_SPEED = 0.06;
 
-/** Ball mass 7.26 kg vs pin 1.53 kg -- the ratio that sets the kick a pin
- * takes off the ball and the (much smaller) deflection the ball takes back. */
+// Ball 7.26 kg against pin 1.53 kg. For an impulse along the contact normal
+// the pin leaves with 2*m_ball/(m_ball+m_pin) = 1.65 of the closing speed and
+// the ball loses 2*m_pin/(m_ball+m_pin) = 0.35 of it. Both are damped a
+// little for the energy a real collision loses.
+//
+// BALL_DEFLECT is the one deliberate departure. It was 0.11, which made the
+// ball far too heavy to be pushed around -- it ploughed through a rack in a
+// dead straight line. The physically correct 0.35 knocks it so far off line
+// that a straight ball can't carry a rack at all, which matters here because
+// this game has no hook to steer back with. 0.16 is the compromise: the ball
+// is visibly shoved off its path (~20 cm through the pocket), a fast ball is
+// shoved much less (~9 cm) since the pins are cleared before they can push
+// back, and a well-aimed shot still strikes.
 const PIN_KICK = 1.55;
-const BALL_DEFLECT = 0.11;
+const BALL_DEFLECT = 0.16;
 /** Pins tip faster the harder they are moving. */
 const TIP_RATE = 3.4;
 const PIN_FRICTION = 1.9;
@@ -87,6 +101,7 @@ export function createSimulation(standingPins: number[]): Simulation {
       roll: 0,
       finished: false,
     },
+    accumulator: 0,
     pins: standingPins.map((id) => ({
       id,
       x: PIN_LAYOUT[id].x,
@@ -127,6 +142,35 @@ export function isSettled(sim: Simulation): boolean {
     // Mid-topple pins are still animating even if they have stopped sliding.
     return pin.tilt < SETTLED_TILT_EPS || pin.tilt >= DOWN_TILT;
   });
+}
+
+/**
+ * Fixed physics timestep. The simulation used to advance by whatever the
+ * display gave it, so the same throw behaved differently at 30 fps and
+ * 144 fps -- and at low frame rates a fast ball could move most of a
+ * contact radius in one step, making hits feel unreliable. `advance`
+ * subdivides the frame into these, so the physics is identical everywhere.
+ */
+const FIXED_DT = 1 / 240;
+
+/**
+ * Advance the simulation by a frame's worth of time, in fixed substeps.
+ * This is what games should call; `step` is a single substep.
+ */
+export function advance(sim: Simulation, dt: number): StepEvents {
+  // Carry the remainder rather than running a short final step: a partial
+  // step is what made 60 fps and 144 fps produce different racks even after
+  // the timestep was nominally fixed. Capped so a backgrounded tab doesn't
+  // try to catch up on minutes of physics at once.
+  sim.accumulator = Math.min(sim.accumulator + dt, 0.1);
+  const merged: StepEvents = { impact: 0, enteredGutter: false };
+  while (sim.accumulator >= FIXED_DT) {
+    const events = step(sim, FIXED_DT);
+    merged.impact = Math.max(merged.impact, events.impact);
+    merged.enteredGutter = merged.enteredGutter || events.enteredGutter;
+    sim.accumulator -= FIXED_DT;
+  }
+  return merged;
 }
 
 export function step(sim: Simulation, dt: number): StepEvents {

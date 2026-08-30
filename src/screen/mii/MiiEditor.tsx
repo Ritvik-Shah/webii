@@ -10,6 +10,7 @@ interface MiiEditorProps {
   mii: Mii;
   onSave: (mii: Mii) => void;
   onBack: () => void;
+  hostPlayer?: number;
 }
 
 // "Name" behaves like every other category (Up/Down cycles its value) --
@@ -44,7 +45,7 @@ function withValue(mii: Mii, category: Category, value: string): Mii {
  * abstract label, so you can see exactly what you're picking before you
  * commit to it.
  */
-export function MiiEditor({ subscribe, mii, onSave, onBack }: MiiEditorProps) {
+export function MiiEditor({ subscribe, mii, onSave, onBack, hostPlayer }: MiiEditorProps) {
   const [current, setCurrent] = useState<Mii>(mii);
   const [categoryIndex, setCategoryIndex] = useState(0);
   const [savedFlash, setSavedFlash] = useState(false);
@@ -102,7 +103,8 @@ export function MiiEditor({ subscribe, mii, onSave, onBack }: MiiEditorProps) {
   }, []);
 
   useEffect(() => {
-    return subscribe((msg) => {
+    return subscribe((msg, player) => {
+      if (hostPlayer !== undefined && player !== hostPlayer) return;
       if (msg.type !== "button" || msg.state !== "down") return;
       switch (msg.button) {
         case "LEFT":
@@ -130,7 +132,7 @@ export function MiiEditor({ subscribe, mii, onSave, onBack }: MiiEditorProps) {
           break;
       }
     });
-  }, [subscribe, changeCategory, changeValue, handleSave, handleRandomize, onBack]);
+  }, [subscribe, hostPlayer, changeCategory, changeValue, handleSave, handleRandomize, onBack]);
 
   useEffect(() => {
     return () => {

@@ -6,6 +6,10 @@ import { useRoomSocket } from "../lib/useRoomSocket";
 import { TanksVersusSpectator } from "./games/TanksVersusSpectator";
 import type { TanksVersusSnapshot } from "./games/TanksVersus";
 import type { BowlingSnapshot } from "./games/bowling/Bowling";
+import type { TurnRoundsSnapshot } from "./games/TurnRounds";
+import { TurnRoundsOverlay } from "./games/TurnRoundsOverlay";
+import { RangeSpectator } from "./games/RangeSpectator";
+import type { RangeSnapshot } from "./games/TargetPractice";
 
 // Bowling drags in three.js, so a spectator only downloads it if the room is
 // actually bowling -- same reasoning as the host side.
@@ -57,8 +61,29 @@ export function SpectatorApp() {
     if (state?.world) return <TanksVersusSpectator snapshot={state} />;
   }
 
-  // Everything else (lobby, menu, Mii select, and the games that don't
-  // mirror yet) gets a status card rather than a blank screen.
+  // The take-turns games publish a common wrapper snapshot: between rounds
+  // it's the hand-off or results card, and during a round it carries that
+  // game's own state.
+  const turns = snapshot?.state as TurnRoundsSnapshot | undefined;
+  if (turns?.kind === "turn-rounds") {
+    if (turns.stage !== "playing") return <TurnRoundsOverlay snapshot={turns} spectating />;
+    if (snapshot?.view === "game:target" && turns.round) {
+      return <RangeSpectator snapshot={turns.round as RangeSnapshot} />;
+    }
+    // A round is running for a game whose in-play view doesn't mirror yet.
+    return (
+      <div className="spectator-idle">
+        <h1 className="spectator-title">{turns.title}</h1>
+        <p className="spectator-room">Watching room {roomCode}</p>
+        <p className="spectator-status">
+          Player {turns.players[turns.activeIndex]?.player} is playing — this game's round doesn't mirror yet
+        </p>
+      </div>
+    );
+  }
+
+  // Everything else (lobby, menu, Mii select) gets a status card rather than
+  // a blank screen.
   const lobby = snapshot?.state as LobbySnapshot | undefined;
   const waitingFor = !connected
     ? "Connecting…"

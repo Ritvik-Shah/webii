@@ -992,3 +992,9 @@ a {
   font-size: 0.9rem;
   color: var(--wii-ink-soft);
 }
+
+.pairing-seat.is-targeted {
+  border: 2px solid #c43b3b;
+  background: #ffe3e3;
+  color: #7a1f1f;
+}

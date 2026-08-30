@@ -8,6 +8,9 @@ import { MiiEditor } from "./MiiEditor";
 interface MiiChannelProps {
   subscribe: (fn: (msg: ControllerMessage, player: number) => void) => () => void;
   onExit: () => void;
+  /** Only this player's remote drives the channel -- it's one person editing
+   * one Mii, so four cursors fighting over it makes no sense. */
+  hostPlayer?: number;
 }
 
 type Mode = { kind: "plaza" } | { kind: "editor"; mii: Mii };
@@ -21,7 +24,7 @@ type Mode = { kind: "plaza" } | { kind: "editor"; mii: Mii };
  * in-screen "back to menu" button here, consistent with the Wii Menu/Mii
  * Select screens.
  */
-export function MiiChannel({ subscribe }: MiiChannelProps) {
+export function MiiChannel({ subscribe, hostPlayer }: MiiChannelProps) {
   const [roster, setRoster] = useState<Mii[]>(() => loadCustomMiis());
   const [mode, setMode] = useState<Mode>({ kind: "plaza" });
 
@@ -34,7 +37,7 @@ export function MiiChannel({ subscribe }: MiiChannelProps) {
   };
 
   if (mode.kind === "editor") {
-    return <MiiEditor subscribe={subscribe} mii={mode.mii} onSave={handleSave} onBack={handleBack} />;
+    return <MiiEditor subscribe={subscribe} hostPlayer={hostPlayer} mii={mode.mii} onSave={handleSave} onBack={handleBack} />;
   }
-  return <MiiPlaza subscribe={subscribe} roster={roster} onSelectMii={handleSelectMii} onNewMii={handleNewMii} />;
+  return <MiiPlaza subscribe={subscribe} hostPlayer={hostPlayer} roster={roster} onSelectMii={handleSelectMii} onNewMii={handleNewMii} />;
 }

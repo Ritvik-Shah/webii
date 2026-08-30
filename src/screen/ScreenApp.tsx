@@ -91,6 +91,16 @@ export function ScreenApp() {
   // the Wii Menu) so four remotes don't fight over one cursor.
   const hostPlayer = players[0];
 
+  // Only ever removes someone other than the host, so player 1 can't drop
+  // themselves and leave the room with nobody able to start it.
+  const handleKick = useCallback(
+    (player: number) => {
+      if (player === hostPlayer) return;
+      send({ type: "kick", player });
+    },
+    [send, hostPlayer],
+  );
+
   const handleLaunch = useCallback((channelId: string) => {
     // The Mii Channel IS the "pick/make a Mii" experience -- routing it
     // through Mii Select first would be circular, so it skips straight to
@@ -155,14 +165,23 @@ export function ScreenApp() {
       return <div className="screen-loading">Loading Webii…</div>;
     }
     if (view.kind === "lobby" || players.length === 0) {
-      return <PairingScreen roomCode={roomCode} screenSocketConnected={connected} players={players} />;
+      return (
+        <PairingScreen
+          roomCode={roomCode}
+          screenSocketConnected={connected}
+          players={players}
+          subscribe={subscribe}
+          hostPlayer={hostPlayer}
+          onKick={handleKick}
+        />
+      );
     }
 
     switch (view.kind) {
       case "menu":
         return <WiiMenu send={send} subscribe={subscribe} onLaunch={handleLaunch} hostPlayer={hostPlayer} />;
       case "mii-channel":
-        return <MiiChannel subscribe={subscribe} onExit={() => setView({ kind: "menu" })} />;
+        return <MiiChannel subscribe={subscribe} hostPlayer={hostPlayer} onExit={() => setView({ kind: "menu" })} />;
       case "mii-select": {
         const channel = CHANNELS.find((c) => c.id === view.channelId);
         return (

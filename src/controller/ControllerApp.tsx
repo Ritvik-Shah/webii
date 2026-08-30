@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
 import { useParams } from "react-router-dom";
-import type { AssignedMessage, PresenceMessage, ScreenMessage, TurnMessage } from "../../shared/protocol";
-import { CLOSE_ROOM_FULL, MAX_PLAYERS, isAssigned, isPresence } from "../../shared/protocol";
+import type { AssignedMessage, PresenceMessage, RemovedMessage, ScreenMessage, TurnMessage } from "../../shared/protocol";
+import { CLOSE_REMOVED, CLOSE_ROOM_FULL, MAX_PLAYERS, isAssigned, isPresence, isRemoved } from "../../shared/protocol";
 import { useRoomSocket } from "../lib/useRoomSocket";
 import { useMotionStream } from "./useMotionStream";
 import PermissionGate from "./PermissionGate";
@@ -32,12 +32,24 @@ export default function ControllerApp() {
   const [presence, setPresence] = useState<PresenceMessage | null>(null);
   const [player, setPlayer] = useState<number>(() => rememberedSlot(roomCode));
   const [roomFull, setRoomFull] = useState(false);
+  const [removed, setRemoved] = useState(false);
   const [turn, setTurn] = useState<TurnMessage | null>(null);
 
   const onMessage = useCallback(
-    (msg: PresenceMessage | AssignedMessage | ScreenMessage) => {
+    (msg: PresenceMessage | AssignedMessage | RemovedMessage | ScreenMessage) => {
       if (isPresence(msg)) {
         setPresence(msg);
+        return;
+      }
+      if (isRemoved(msg)) {
+        setRemoved(true);
+        // Forget the slot so a deliberate rejoin takes a fresh one rather
+        // than reclaiming the seat the host just cleared.
+        try {
+          sessionStorage.removeItem(slotKey(roomCode));
+        } catch {
+          // Nothing to clean up if storage is unavailable.
+        }
         return;
       }
       if (isAssigned(msg)) {
@@ -60,12 +72,27 @@ export default function ControllerApp() {
     [roomCode],
   );
 
-  const onRejected = useCallback((code: number) => {
-    if (code === CLOSE_ROOM_FULL) setRoomFull(true);
-  }, []);
+  const onRejected = useCallback(
+    (code: number) => {
+      if (code === CLOSE_ROOM_FULL) setRoomFull(true);
+      if (code === CLOSE_REMOVED) {
+        setRemoved(true);
+        // Forget the slot, so rejoining takes a fresh one rather than
+        // trying to reclaim the seat the host just cleared.
+        try {
+          sessionStorage.removeItem(slotKey(roomCode));
+        } catch {
+          // Nothing to clean up if storage is unavailable.
+        }
+      }
+    },
+    [roomCode],
+  );
 
-  const { connected, send } = useRoomSocket<PresenceMessage | AssignedMessage | ScreenMessage>({
-    roomCode: permission === "granted" ? roomCode : "",
+  const { connected, send } = useRoomSocket<PresenceMessage | AssignedMessage | RemovedMessage | ScreenMessage>({
+    // Blanking the room code keeps the socket closed, so a removed phone
+    // doesn't immediately reconnect and retake a slot.
+    roomCode: permission === "granted" && !removed ? roomCode : "",
     role: "controller",
     onMessage,
     wantPlayer: player,
@@ -81,6 +108,15 @@ export default function ControllerApp() {
 
   if (permission !== "granted") {
     return <PermissionGate onGranted={() => setPermission("granted")} />;
+  }
+
+  if (removed) {
+    return (
+      <div className="controller-notice">
+        <h1>Removed from the room</h1>
+        <p>Player 1 dropped you from room {roomCode}. Reload this page to join again.</p>
+      </div>
+    );
   }
 
   if (roomFull) {

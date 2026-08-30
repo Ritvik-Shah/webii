@@ -10,6 +10,7 @@ interface MiiPlazaProps {
   roster: Mii[];
   onSelectMii: (mii: Mii) => void;
   onNewMii: () => void;
+  hostPlayer?: number;
 }
 
 const COLS = 4;
@@ -24,7 +25,7 @@ const MAX_SAVED = COLS * ROWS - 1;
  * "New Mii" tile to start fresh) -- the hub screen real Wii Mii Channel
  * opens on, rather than jumping straight into an editor.
  */
-export function MiiPlaza({ subscribe, roster, onSelectMii, onNewMii }: MiiPlazaProps) {
+export function MiiPlaza({ subscribe, roster, onSelectMii, onNewMii, hostPlayer }: MiiPlazaProps) {
   const shown = roster.slice(0, MAX_SAVED);
   const tileCount = shown.length + 1; // + the New Mii tile
 
@@ -33,7 +34,7 @@ export function MiiPlaza({ subscribe, roster, onSelectMii, onNewMii }: MiiPlazaP
     else onNewMii();
   };
 
-  const { cursorRef, gridRef, hoveredIndex } = usePointerGrid(subscribe, COLS, ROWS, handleSelect);
+  const { cursorRef, gridRef, hoveredIndex } = usePointerGrid(subscribe, COLS, ROWS, handleSelect, hostPlayer);
 
   return (
     <div className="mii-plaza-root">

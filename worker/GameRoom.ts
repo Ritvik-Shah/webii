@@ -1,9 +1,11 @@
 import { DurableObject } from "cloudflare:workers";
 import {
+  CLOSE_REMOVED,
   CLOSE_ROOM_FULL,
   MAX_PLAYERS,
   type AssignedMessage,
   type PresenceMessage,
+  type RemovedMessage,
   type Role,
 } from "../shared/protocol";
 
@@ -122,6 +124,27 @@ export class GameRoom extends DurableObject<Env> {
       return;
     }
 
+    if (parsed.type === "kick") {
+      // The room acts on this itself rather than relaying it: closing the
+      // socket is what actually frees the slot.
+      const target = typeof (parsed as { player?: number }).player === "number" ? (parsed as { player: number }).player : 0;
+      if (target >= 1 && target <= MAX_PLAYERS) {
+        for (const victim of this.ctx.getWebSockets(playerTag(target))) {
+          // Tell them first: the close code on its own doesn't reliably
+          // reach the client, and a phone that just sees a dropped socket
+          // reconnects and takes a slot straight back.
+          try {
+            victim.send(JSON.stringify({ type: "removed" } satisfies RemovedMessage));
+          } catch {
+            // Already gone; the close below is then a no-op.
+          }
+          victim.close(CLOSE_REMOVED, "removed by the host");
+        }
+        this.broadcastPresence();
+      }
+      return;
+    }
+
     if (parsed.type === "snapshot") {
       for (const viewer of this.ctx.getWebSockets("spectator")) {
         if (!isOpen(viewer)) continue;
@@ -142,7 +165,10 @@ export class GameRoom extends DurableObject<Env> {
   }
 
   async webSocketClose(ws: WebSocket) {
-    ws.close();
+    // Deliberately does NOT call ws.close() again. The socket is already
+    // closing, and a bare close() here overrode the code we had just sent --
+    // which is why a removed player's phone never learned it was removed and
+    // silently reconnected instead.
     // The closing socket is still listed by getWebSockets() at this point in
     // production (though not in the local dev runtime), so it has to be
     // excluded explicitly or the roster still shows the player who just left.

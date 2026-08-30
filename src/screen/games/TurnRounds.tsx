@@ -1,11 +1,24 @@
 import { Fragment, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import type { ControllerMessage } from "../../../shared/protocol";
 import type { Mii } from "../mii/Mii";
-import { MiiAvatar } from "../mii/MiiAvatar";
 import type { PlayerInfo } from "./types";
 import "./turn-rounds.css";
+import { TurnRoundsOverlay } from "./TurnRoundsOverlay";
 
 export type Subscribe = (fn: (msg: ControllerMessage, player: number) => void) => () => void;
+
+/** What a spectator screen is sent for any take-turns game. */
+export interface TurnRoundsSnapshot {
+  kind: "turn-rounds";
+  title: string;
+  scoreSuffix?: string;
+  stage: "handoff" | "playing" | "results";
+  players: PlayerInfo[];
+  scores: number[];
+  activeIndex: number;
+  /** The wrapped game's own snapshot, present only while a round is running. */
+  round?: unknown;
+}
 
 /** What a single player's round is handed. The round is remounted for each
  * turn, so it never has to reset itself between players. */
@@ -15,6 +28,9 @@ export interface RoundProps {
   /** Addressed to whoever is up, so a round's haptics buzz the phone
    * actually playing rather than everyone in the room. */
   send: (msg: object) => void;
+  /** Publish this round's render state for spectator screens. Wrapped so
+   * the mirror also learns whose round it is and the running scores. */
+  publish: (state: unknown) => void;
   mii: Mii;
   /** Call once when this player's round is over, with their final score. */
   onFinish: (score: number) => void;
@@ -25,6 +41,7 @@ interface TurnRoundsProps {
   send: (msg: object) => void;
   subscribe: Subscribe;
   onExit: () => void;
+  publish: (state: unknown) => void;
   /** Shown on the hand-off and results cards, e.g. "Shooting Range". */
   title: string;
   /** Unit for the score readout, e.g. "pts". */
@@ -48,6 +65,7 @@ export function TurnRounds({
   send,
   subscribe,
   onExit,
+  publish,
   title,
   scoreSuffix,
   renderRound,
@@ -82,6 +100,10 @@ export function TurnRounds({
   // Scores are kept in a ref as well so the next index can be derived
   // without nesting state updates inside an updater.
   const scoresRef = useRef<number[]>([]);
+  const stageRef = useRef(stage);
+  stageRef.current = stage;
+  const indexRef = useRef(index);
+  indexRef.current = index;
   const handleFinish = useCallback(
     (score: number) => {
       scoresRef.current = [...scoresRef.current, score];
@@ -92,6 +114,35 @@ export function TurnRounds({
     },
     [players.length],
   );
+
+  const publishRef = useRef(publish);
+  publishRef.current = publish;
+
+  /** Everything a spectator needs, whatever stage we're at. `round` carries
+   * the wrapped game's own state while someone is actually playing. */
+  const publishStage = useCallback(
+    (round: unknown) => {
+      publishRef.current({
+        kind: "turn-rounds",
+        title,
+        scoreSuffix,
+        stage: stageRef.current,
+        players,
+        scores: scoresRef.current,
+        activeIndex: indexRef.current,
+        round,
+      } satisfies TurnRoundsSnapshot);
+    },
+    [title, scoreSuffix, players],
+  );
+
+  // The overlay stages don't animate, so a slow heartbeat is plenty.
+  useEffect(() => {
+    if (stage === "playing") return;
+    publishStage(undefined);
+    const timer = window.setInterval(() => publishStage(undefined), 500);
+    return () => window.clearInterval(timer);
+  }, [stage, publishStage]);
 
   const roundSend = useCallback(
     (msg: object) => sendRef.current(multiplayer ? { ...msg, to: active.player } : msg),
@@ -125,57 +176,11 @@ export function TurnRounds({
     return () => window.clearTimeout(timer);
   }, [stage]);
 
-  if (stage === "results") {
-    const ranked = players
-      .map((info, i) => ({ info, score: scores[i] ?? 0 }))
-      .sort((a, b) => b.score - a.score);
-    const best = ranked[0]?.score ?? 0;
-
+  if (stage !== "playing") {
     return (
-      <div className="turn-rounds-overlay">
-        <div className="turn-rounds-card">
-          <h2 className="turn-rounds-title">{multiplayer ? `${title} — Results` : title}</h2>
-          <ol className="turn-rounds-results">
-            {ranked.map(({ info, score }, rank) => (
-              <li key={info.player} className={`turn-rounds-result${score === best ? " is-winner" : ""}`}>
-                <span className="turn-rounds-rank">{rank + 1}</span>
-                <MiiAvatar mii={info.mii} size={38} />
-                <span className="turn-rounds-who">
-                  {multiplayer ? `P${info.player} · ` : ""}
-                  {info.mii.name}
-                </span>
-                <span className="turn-rounds-score">
-                  {score}
-                  {scoreSuffix ? ` ${scoreSuffix}` : ""}
-                </span>
-              </li>
-            ))}
-          </ol>
-          <p className="turn-rounds-hint">Press A to return to the Wii Menu</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (stage === "handoff") {
-    return (
-      <div className="turn-rounds-overlay">
-        <div className="turn-rounds-card">
-          <span className="turn-rounds-eyebrow">{title}</span>
-          <h2 className="turn-rounds-title">Player {active.player}</h2>
-          <MiiAvatar mii={active.mii} size={110} />
-          <p className="turn-rounds-name">{active.mii.name}, you're up</p>
-          {scores.length > 0 && (
-            <p className="turn-rounds-standing">
-              {players
-                .slice(0, scores.length)
-                .map((info, i) => `P${info.player} ${scores[i]}`)
-                .join("  ·  ")}
-            </p>
-          )}
-          <p className="turn-rounds-hint">Press A when you're ready</p>
-        </div>
-      </div>
+      <TurnRoundsOverlay
+        snapshot={{ kind: "turn-rounds", title, scoreSuffix, stage, players, scores, activeIndex: index }}
+      />
     );
   }
 
@@ -183,7 +188,13 @@ export function TurnRounds({
   // player rather than reconciled into the previous player's state.
   return (
     <Fragment key={index}>
-      {renderRound({ subscribe: roundSubscribe, send: roundSend, mii: active.mii, onFinish: handleFinish })}
+      {renderRound({
+        subscribe: roundSubscribe,
+        send: roundSend,
+        publish: publishStage,
+        mii: active.mii,
+        onFinish: handleFinish,
+      })}
     </Fragment>
   );
 }

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import "./target-practice.css";
+import { SNAPSHOT_HZ } from "../../../shared/protocol";
 import type { GameProps } from "./types";
 import { TurnRounds, type RoundProps } from "./TurnRounds";
 import { useGameCanvas } from "./useGameCanvas";
@@ -340,6 +341,39 @@ function updateWorld(world: World, dtSec: number, stageNumber: number) {
 // Canvas rendering
 // ---------------------------------------------------------------------------
 
+/** Everything a spectator screen needs to draw a round of the range. */
+export interface RangeSnapshot {
+  world: World;
+  stage: number;
+  reticle: { x: number; y: number };
+  /** The host's performance.now() when this was captured. */
+  now: number;
+}
+
+/** Draws a whole frame of the range. Pure over the world, so the host and
+ * every mirror produce the same picture. */
+export function drawRange(
+  ctx: CanvasRenderingContext2D,
+  world: World,
+  width: number,
+  height: number,
+  stage: number,
+  reticle: { x: number; y: number },
+  now: number,
+) {
+  ctx.clearRect(0, 0, width, height);
+  drawBackdrop(ctx, width, height);
+  drawTargets(ctx, world, width, height, now);
+
+  ctx.save();
+  ctx.translate(0, height - 34);
+  drawHud(ctx, world, width, stage);
+  ctx.restore();
+
+  drawPopups(ctx, world, width, height, now);
+  drawReticle(ctx, (reticle.x / 100) * width, (reticle.y / 100) * height, now < world.muzzleFlashUntil);
+}
+
 function drawBackdrop(ctx: CanvasRenderingContext2D, width: number, height: number) {
   const sky = ctx.createLinearGradient(0, 0, 0, height * 0.55);
   sky.addColorStop(0, "#274b52");
@@ -378,8 +412,10 @@ function drawBackdrop(ctx: CanvasRenderingContext2D, width: number, height: numb
   ctx.fillRect(0, height - 14, width, 14);
 }
 
-function drawTargets(ctx: CanvasRenderingContext2D, world: World, width: number, height: number) {
-  const now = performance.now();
+/** `now` is passed in rather than read here so a spectator screen can draw
+ * with the host's clock: `spawnedAt` and friends are host timestamps, and
+ * this machine's performance.now() has a different origin entirely. */
+function drawTargets(ctx: CanvasRenderingContext2D, world: World, width: number, height: number, now: number) {
   const minDim = Math.min(width, height);
   for (const t of world.targets) {
     const px = (t.x / 100) * width;
@@ -443,8 +479,7 @@ function drawTargets(ctx: CanvasRenderingContext2D, world: World, width: number,
   }
 }
 
-function drawPopups(ctx: CanvasRenderingContext2D, world: World, width: number, height: number) {
-  const now = performance.now();
+function drawPopups(ctx: CanvasRenderingContext2D, world: World, width: number, height: number, now: number) {
   ctx.textAlign = "center";
   ctx.font = "bold 22px 'Trebuchet MS', system-ui, sans-serif";
   for (const p of world.popups) {
@@ -541,7 +576,10 @@ interface FinalStats {
  * remounts it per player and collects the final score -- so this component
  * only ever deals with a single run.
  */
-function RangeRound({ subscribe, mii, onFinish }: RoundProps) {
+function RangeRound({ subscribe, mii, onFinish, publish }: RoundProps) {
+  const publishRef = useRef(publish);
+  publishRef.current = publish;
+  const lastPublishedAt = useRef(0);
   const [stage, setStage] = useState(1);
   const [phase, setPhase] = useState<Phase>("playing");
   const [paused, setPaused] = useState(false);
@@ -641,23 +679,16 @@ function RangeRound({ subscribe, mii, onFinish }: RoundProps) {
         updateWorld(world, dt, stage);
       }
 
-      ctx.clearRect(0, 0, width, height);
-      drawBackdrop(ctx, width, height);
-      drawTargets(ctx, world, width, height);
-
       const now = performance.now();
-
-      ctx.save();
-      ctx.translate(0, height - 34);
-      drawHud(ctx, world, width, stage);
-      ctx.restore();
-
-      drawPopups(ctx, world, width, height);
-
       const reticle = reticlePosRef.current;
-      const rx = (reticle.x / 100) * width;
-      const ry = (reticle.y / 100) * height;
-      drawReticle(ctx, rx, ry, now < world.muzzleFlashUntil);
+      drawRange(ctx, world, width, height, stage, reticle, now);
+
+      // Mirror the round to any spectator screens, including the host's
+      // clock so their animations line up with ours.
+      if (now - lastPublishedAt.current >= 1000 / SNAPSHOT_HZ) {
+        lastPublishedAt.current = now;
+        publishRef.current({ world, stage, reticle, now } satisfies RangeSnapshot);
+      }
 
       if (isPlaying && !transitioningRef.current) {
         const cfg = STAGES[stage - 1];
@@ -767,7 +798,7 @@ function RangeRound({ subscribe, mii, onFinish }: RoundProps) {
  * Shooting Range takes turns: each player runs the whole five-stage range,
  * then the scores are ranked. Solo play is exactly as it was.
  */
-export function TargetPractice({ send, subscribe, onExit, players }: GameProps) {
+export function TargetPractice({ send, subscribe, onExit, players, publish }: GameProps) {
   return (
     <TurnRounds
       players={players}
@@ -775,6 +806,7 @@ export function TargetPractice({ send, subscribe, onExit, players }: GameProps) 
       subscribe={subscribe}
       onExit={onExit}
       title="Shooting Range"
+      publish={publish}
       renderRound={(round) => <RangeRound {...round} />}
     />
   );

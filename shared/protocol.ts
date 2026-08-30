@@ -133,6 +133,28 @@ export interface SnapshotMessage {
   state: unknown;
 }
 
+/**
+ * Host screen -> room: drop a player, freeing their slot. Handled by the
+ * room itself rather than relayed. Needed because a phone that drops off
+ * without a clean close (screen locked, walked out of wifi) leaves a socket
+ * the room still believes is live, and in a turn-based game everyone then
+ * waits forever on someone who isn't there.
+ */
+export interface KickMessage {
+  type: "kick";
+  player: number;
+}
+
+/**
+ * Room -> the phone being removed. The close code alone isn't dependable
+ * here (hibernatable sockets don't reliably deliver one), and a phone that
+ * only sees a bare disconnect would just reconnect and take a slot again --
+ * so it's told in a message it cannot miss, and the close follows.
+ */
+export interface RemovedMessage {
+  type: "removed";
+}
+
 /** Screen -> controller: whose turn it is, so every phone can show either
  * "Your turn" or who they're waiting on. */
 export interface TurnMessage {
@@ -148,6 +170,7 @@ export interface TurnMessage {
 export type ScreenMessage = (
   | GameStateMessage
   | HapticMessage
+  | KickMessage
   | TurnMessage
   | SnapshotMessage
   | PingMessage
@@ -158,7 +181,7 @@ export type ScreenMessage = (
 
 export type RelayMessage = ControllerMessage | ScreenMessage;
 
-export type ServerMessage = PresenceMessage | AssignedMessage;
+export type ServerMessage = PresenceMessage | AssignedMessage | RemovedMessage;
 
 export function isPresence(msg: unknown): msg is PresenceMessage {
   return !!msg && typeof msg === "object" && (msg as { type?: string }).type === "presence";
@@ -168,12 +191,18 @@ export function isAssigned(msg: unknown): msg is AssignedMessage {
   return !!msg && typeof msg === "object" && (msg as { type?: string }).type === "assigned";
 }
 
+export function isRemoved(msg: unknown): msg is RemovedMessage {
+  return !!msg && typeof msg === "object" && (msg as { type?: string }).type === "removed";
+}
+
 export function isSnapshot(msg: unknown): msg is SnapshotMessage {
   return !!msg && typeof msg === "object" && (msg as { type?: string }).type === "snapshot";
 }
 
 /** WebSocket close code the room uses when every player slot is taken. */
 export const CLOSE_ROOM_FULL = 4001;
+/** ...and when the host removes a player from the room. */
+export const CLOSE_REMOVED = 4002;
 
 /** How often the host publishes snapshots while a game is running. Fast
  * enough that motion reads smoothly on a mirror, slow enough that a room

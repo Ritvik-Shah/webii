@@ -24,7 +24,7 @@ import {
   createSimulation,
   isSettled,
   standingPinIds,
-  step,
+  advance,
   type Simulation,
 } from "./physics";
 import { createBowlingScene, type BowlingScene, type CameraShot, type SceneView } from "./scene";
@@ -577,7 +577,7 @@ export function Bowling({ send, subscribe, onExit, players, publish }: GameProps
           break;
 
         case "roll": {
-          const events = step(game.sim, dt);
+          const events = advance(game.sim, dt);
           const ball = game.sim.ball;
 
           if (game.rollSound) {

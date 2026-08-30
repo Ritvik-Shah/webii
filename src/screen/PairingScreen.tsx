@@ -1,21 +1,36 @@
 import { useEffect, useRef } from "react";
 import QRCode from "qrcode";
+import type { ControllerMessage } from "../../shared/protocol";
 import { MAX_PLAYERS } from "../../shared/protocol";
+import { usePointerGrid } from "./usePointerGrid";
+import { Cursor } from "./Cursor";
 
 interface PairingScreenProps {
   roomCode: string;
   screenSocketConnected: boolean;
   /** Player numbers currently paired, ascending. */
   players: number[];
+  subscribe: (fn: (msg: ControllerMessage, player: number) => void) => () => void;
+  /** Lowest connected player: the only one who can start or remove anyone. */
+  hostPlayer?: number;
+  onKick: (player: number) => void;
 }
 
 /**
  * Room lobby: the code and QR to join with, plus a seat per player slot that
- * fills in as phones connect. Doubles as the "waiting for anyone at all"
- * screen -- once at least one phone is in, the host is prompted to start,
- * and further players can still join from here.
+ * fills in as phones connect. The host can point at a taken seat and press B
+ * to clear it -- the way out of a phone that dropped off the network without
+ * closing cleanly and is still holding a slot (and, in a turn-based game,
+ * holding up everyone else).
  */
-export function PairingScreen({ roomCode, screenSocketConnected, players }: PairingScreenProps) {
+export function PairingScreen({
+  roomCode,
+  screenSocketConnected,
+  players,
+  subscribe,
+  hostPlayer,
+  onKick,
+}: PairingScreenProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -29,8 +44,28 @@ export function PairingScreen({ roomCode, screenSocketConnected, players }: Pair
     });
   }, [roomCode]);
 
+  // The grid is hover-only; A (start) is handled centrally by ScreenApp so it
+  // works wherever the cursor happens to be.
+  const { cursorRef, gridRef, hoveredIndex } = usePointerGrid(subscribe, MAX_PLAYERS, 1, () => {}, hostPlayer);
+
+  const hoveredRef = useRef(hoveredIndex);
+  hoveredRef.current = hoveredIndex;
+  const onKickRef = useRef(onKick);
+  onKickRef.current = onKick;
+
+  useEffect(() => {
+    if (hostPlayer === undefined) return;
+    return subscribe((msg, player) => {
+      if (player !== hostPlayer) return;
+      if (msg.type !== "button" || msg.button !== "B" || msg.state !== "down") return;
+      const seat = hoveredRef.current;
+      if (seat === null) return;
+      onKickRef.current(seat + 1);
+    });
+  }, [subscribe, hostPlayer]);
+
   const seats = Array.from({ length: MAX_PLAYERS }, (_, i) => i + 1);
-  const host = players[0];
+  const canKick = players.length > 1;
 
   return (
     <div className="pairing-screen">
@@ -39,13 +74,19 @@ export function PairingScreen({ roomCode, screenSocketConnected, players }: Pair
       <canvas className="pairing-qr" ref={canvasRef} />
       <div className="pairing-code">{roomCode}</div>
 
-      <div className="pairing-seats">
-        {seats.map((seat) => {
+      <div className="pairing-seats" ref={gridRef}>
+        {seats.map((seat, index) => {
           const joined = players.includes(seat);
+          const hovered = index === hoveredIndex;
           return (
-            <div key={seat} className={`pairing-seat${joined ? " is-joined" : ""}`}>
+            <div
+              key={seat}
+              className={`pairing-seat${joined ? " is-joined" : ""}${hovered && joined && canKick ? " is-targeted" : ""}`}
+            >
               <span className="pairing-seat-number">P{seat}</span>
-              <span className="pairing-seat-state">{joined ? "Ready" : "Open"}</span>
+              <span className="pairing-seat-state">
+                {hovered && joined && canKick ? "B to remove" : joined ? "Ready" : "Open"}
+              </span>
             </div>
           );
         })}
@@ -61,8 +102,9 @@ export function PairingScreen({ roomCode, screenSocketConnected, players }: Pair
           ? "Connecting…"
           : players.length === 0
             ? "Waiting for a phone to join…"
-            : `Player ${host}: press A to start · up to ${MAX_PLAYERS} can join`}
+            : `Player ${hostPlayer}: press A to start${canKick ? " · point at a seat and press B to remove that player" : ""}`}
       </p>
+      {hostPlayer !== undefined && <Cursor ref={cursorRef} />}
     </div>
   );
 }

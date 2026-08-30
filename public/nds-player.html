@@ -24,17 +24,22 @@
     <script>
       // This page is loaded in an iframe by NdsPlayer.tsx -- EmulatorJS's own
       // docs state it can't run directly inside a React/SPA page, only in an
-      // iframe. The parent passes the ROM/BIOS as blob: URLs (created from
-      // locally-picked File objects, never uploaded anywhere) via the query
+      // iframe. The parent passes the ROM as a blob: URL (created from a
+      // locally-picked File object, never uploaded anywhere) via the query
       // string, and drives input by calling into this window's EJS_emulator
       // instance directly (same-origin, so that's reachable from the parent).
+      //
+      // Core: desmume2015, not melonds. melonDS wants real BIOS/firmware
+      // dumps to boot at all; DeSmuME has full HLE of the ARM7/ARM9 BIOS
+      // boot routines built in and boots straight into a game without them
+      // (only Wi-Fi and DSi-enhanced titles actually need real firmware) --
+      // confirmed against libretro's own DeSmuME core docs, not guessed.
       var params = new URLSearchParams(location.search);
 
       window.EJS_player = "#game";
-      window.EJS_core = "nds";
+      window.EJS_core = "desmume2015";
       window.EJS_pathtodata = "https://cdn.emulatorjs.org/stable/data/";
       window.EJS_gameUrl = params.get("rom");
-      window.EJS_biosUrl = params.get("bios9");
       window.EJS_gameName = params.get("name") || "game";
       window.EJS_startOnLoaded = true;
       window.EJS_backgroundColor = "#000000";

@@ -5,7 +5,7 @@ import type { Mii } from "../mii/Mii";
 import "./nds.css";
 
 // libretro's standard joypad button indices -- stable across every
-// libretro core (including melonDS), this is the same index space
+// libretro core (DeSmuME included), this is the same index space
 // EmulatorJS's own gamepad.js/emulator.js use when calling simulateInput.
 const RETRO = {
   B: 0,
@@ -51,26 +51,17 @@ interface NdsPlayerProps {
   mii: Mii;
   title: string;
   romFile: File;
-  bios7: File;
-  bios9: File;
-  firmware: File;
 }
 
 /**
- * Plays an NDS ROM via EmulatorJS (melonDS core), loaded through their CDN
- * inside an iframe -- EmulatorJS's own docs say it can't run directly on a
- * React/SPA page. The ROM/BIOS files themselves never leave the browser:
- * they're handed to the iframe as blob: URLs built from local File objects.
- *
- * Known gap, unconfirmed against a real device: EmulatorJS's documented
- * config only exposes a single EJS_biosUrl, but melonDS wants three
- * distinct files (bios7/bios9/firmware). We pass bios9 (ARM9) through that
- * slot as the best guess at the most load-bearing one; bios7/firmware are
- * appended as extra query params in case the core looks for sibling files
- * by convention, but this is genuinely unverified and the most likely
- * thing to need a live-debugging pass.
+ * Plays an NDS ROM via EmulatorJS (DeSmuME core -- see nds-player.html for
+ * why that core and not melonDS: it has HLE BIOS support built in, so no
+ * separate BIOS/firmware files are needed), loaded through their CDN inside
+ * an iframe -- EmulatorJS's own docs say it can't run directly on a
+ * React/SPA page. The ROM itself never leaves the browser: it's handed to
+ * the iframe as a blob: URL built from the local File object.
  */
-export function NdsPlayer({ subscribe, onExit, mii, title, romFile, bios7, bios9, firmware }: NdsPlayerProps) {
+export function NdsPlayer({ subscribe, onExit, mii, title, romFile }: NdsPlayerProps) {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const [ready, setReady] = useState(false);
   const heldRef = useRef<Set<ButtonName>>(new Set());
@@ -79,16 +70,7 @@ export function NdsPlayer({ subscribe, onExit, mii, title, romFile, bios7, bios9
   const iframeSrc = useRef<string | null>(null);
   if (iframeSrc.current === null) {
     const romUrl = URL.createObjectURL(romFile);
-    const bios7Url = URL.createObjectURL(bios7);
-    const bios9Url = URL.createObjectURL(bios9);
-    const firmwareUrl = URL.createObjectURL(firmware);
-    const params = new URLSearchParams({
-      rom: romUrl,
-      bios9: bios9Url,
-      bios7: bios7Url,
-      firmware: firmwareUrl,
-      name: title,
-    });
+    const params = new URLSearchParams({ rom: romUrl, name: title });
     // The Workers assets binding auto-redirects the .html extension away
     // (/nds-player.html -> /nds-player); reference the clean URL directly
     // rather than relying on the iframe following that redirect.
@@ -105,16 +87,14 @@ export function NdsPlayer({ subscribe, onExit, mii, title, romFile, bios7, bios9
     return () => window.removeEventListener("message", onMessage);
   }, []);
 
-  // Revoke the blob URLs on unmount -- they're only needed for the one
-  // iframe load.
+  // Revoke the blob URL on unmount -- it's only needed for the one iframe
+  // load.
   useEffect(() => {
     return () => {
       if (iframeSrc.current) {
         const url = new URL(iframeSrc.current, location.origin);
-        for (const key of ["rom", "bios7", "bios9", "firmware"]) {
-          const blobUrl = url.searchParams.get(key);
-          if (blobUrl) URL.revokeObjectURL(blobUrl);
-        }
+        const blobUrl = url.searchParams.get("rom");
+        if (blobUrl) URL.revokeObjectURL(blobUrl);
       }
     };
   }, []);

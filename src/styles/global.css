@@ -147,10 +147,16 @@ a {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 18px;
-  padding: 48px 32px;
+  /* Tight enough that the seat grid and the "press A to start" line both fit
+     above the fold on a 720p screen. */
+  gap: 12px;
+  padding: 20px 32px;
   text-align: center;
-  max-width: 560px;
+  /* Wide enough for the ten-seat grid, and centred in the page rather than
+     relying on being narrower than it. */
+  width: 100%;
+  max-width: min(64rem, 94vw);
+  margin-inline: auto;
 }
 
 .pairing-title {
@@ -189,6 +195,7 @@ a {
 }
 
 .pairing-hint {
+  max-width: 34rem;
   font-size: 0.95rem;
   color: var(--wii-ink-soft);
   font-weight: 500;
@@ -863,9 +870,13 @@ a {
    ========================================================================= */
 
 .pairing-seats {
-  display: flex;
-  gap: 10px;
+  /* Ten seats: a fixed five-column grid rather than a row, so the layout
+     matches the pointer grid that selects them. */
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
   margin: 4px 0 2px;
+  width: 100%;
 }
 
 .pairing-seat {
@@ -873,8 +884,7 @@ a {
   flex-direction: column;
   align-items: center;
   gap: 2px;
-  min-width: 74px;
-  padding: 8px 12px;
+  padding: 6px 8px;
   border-radius: var(--radius-md);
   background: rgba(255, 255, 255, 0.35);
   border: 2px dashed rgba(11, 61, 145, 0.28);
@@ -1028,11 +1038,13 @@ a {
 .player-manager-title { font-size: clamp(2rem, 5vw, 3.5rem); font-weight: 800; }
 .player-manager-subtitle { font-size: clamp(1rem, 2vw, 1.35rem); color: var(--wii-ink-soft); }
 
-.player-manager-seats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px; }
+/* Five columns to match the seat pointer grid, and shorter cards so ten
+   of them still fit on a TV. */
+.player-manager-seats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; width: min(64rem, 94vw); }
 
 .player-manager-card {
   display: flex;
-  min-height: 160px;
+  min-height: 104px;
   flex-direction: column;
   align-items: center;
   justify-content: center;

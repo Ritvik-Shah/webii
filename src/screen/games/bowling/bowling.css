@@ -494,3 +494,50 @@
   font-variant-numeric: tabular-nums;
   font-weight: 800;
 }
+
+/* ---------- Standings strip (5+ players) ---------- */
+
+.bowling-standings {
+  position: absolute;
+  top: 4.6rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+  max-width: 92vw;
+  z-index: 5;
+  pointer-events: none;
+}
+
+.bowling-standing {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(12, 20, 38, 0.66);
+  border: 1px solid rgba(180, 214, 255, 0.28);
+  font-size: clamp(0.6rem, 1vw, 0.78rem);
+  color: #e2eeff;
+}
+
+.bowling-standing.is-up {
+  border-color: #f4a300;
+  background: rgba(244, 163, 0, 0.22);
+}
+
+.bowling-standing.is-best .bowling-standing-score {
+  color: #ffd45e;
+}
+
+.bowling-standing-who {
+  font-weight: 700;
+  opacity: 0.75;
+}
+
+.bowling-standing-score {
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}

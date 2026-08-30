@@ -8,8 +8,15 @@
  * who needs a view to go with their phone). */
 export type Role = "screen" | "controller" | "spectator";
 
-/** A room seats one screen and up to this many phones, numbered from 1. */
-export const MAX_PLAYERS = 4;
+/** A room seats one screen and up to this many phones, numbered from 1.
+ * Ten so the card and party games can take a full table; the action games
+ * simply use however many turned up. */
+export const MAX_PLAYERS = 10;
+
+/** Seat grids (lobby, player manager) lay out as this many columns. Ten in
+ * a single row is unreadable on a TV. */
+export const SEAT_COLS = 5;
+export const SEAT_ROWS = Math.ceil(MAX_PLAYERS / SEAT_COLS);
 
 export interface PresenceMessage {
   type: "presence";

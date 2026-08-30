@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import QRCode from "qrcode";
 import type { ControllerMessage } from "../../shared/protocol";
-import { MAX_PLAYERS } from "../../shared/protocol";
+import { MAX_PLAYERS, SEAT_COLS, SEAT_ROWS } from "../../shared/protocol";
 import { usePointerGrid } from "./usePointerGrid";
 import { Cursor } from "./Cursor";
 
@@ -46,7 +46,7 @@ export function PairingScreen({
 
   // The grid is hover-only; A (start) is handled centrally by ScreenApp so it
   // works wherever the cursor happens to be.
-  const { cursorRef, gridRef, hoveredIndex } = usePointerGrid(subscribe, MAX_PLAYERS, 1, () => {}, hostPlayer);
+  const { cursorRef, gridRef, hoveredIndex } = usePointerGrid(subscribe, SEAT_COLS, SEAT_ROWS, () => {}, hostPlayer);
 
   const hoveredRef = useRef(hoveredIndex);
   hoveredRef.current = hoveredIndex;
@@ -92,17 +92,17 @@ export function PairingScreen({
         })}
       </div>
 
-      <p className="pairing-hint">
-        Scan the QR code with your phone, or visit {location.host}/play and type the code in by hand.
-        <br />
-        Watching from elsewhere? Open {location.host}/watch/{roomCode} for a second screen.
-      </p>
       <p className="pairing-status">
         {!screenSocketConnected
           ? "Connecting…"
           : players.length === 0
             ? "Waiting for a phone to join…"
             : `Player ${hostPlayer}: press A to start${canKick ? " · point at a seat and press B to remove that player" : ""}`}
+      </p>
+      <p className="pairing-hint">
+        Scan the QR code with your phone, or visit {location.host}/play and type the code in by hand.
+        <br />
+        Watching from elsewhere? Open {location.host}/watch/{roomCode} for a second screen.
       </p>
       {hostPlayer !== undefined && <Cursor ref={cursorRef} />}
     </div>

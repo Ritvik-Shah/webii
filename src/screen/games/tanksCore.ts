@@ -461,10 +461,17 @@ export const SPAWNS = [
   { x: ARENA_W - 90, y: ARENA_H - 90 },
   { x: ARENA_W - 90, y: 90 },
   { x: 90, y: ARENA_H - 90 },
-  // Two extra respawn points along the mid-edges, clear of the bars at
-  // y=96 and y=478 (the first four are also the starting positions).
+  // Mid-edges, clear of the bars at y=96 and y=478.
   { x: ARENA_W / 2, y: 52 },
   { x: ARENA_W / 2, y: ARENA_H - 52 },
+  // Enough distinct points for a full ten-player room -- reusing spawns
+  // would drop two tanks on top of each other at the start of a match.
+  { x: 90, y: ARENA_H / 2 },
+  { x: ARENA_W - 90, y: ARENA_H / 2 },
+  { x: ARENA_W / 2 - 150, y: ARENA_H / 2 },
+  { x: ARENA_W / 2 + 150, y: ARENA_H / 2 },
+  { x: 300, y: 52 },
+  { x: ARENA_W - 300, y: ARENA_H - 52 },
 ];
 
 /** Rotationally symmetric, so no spawn corner is better than another. */

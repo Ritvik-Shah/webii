@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import type { ControllerMessage } from "../../shared/protocol";
-import { MAX_PLAYERS } from "../../shared/protocol";
+import { MAX_PLAYERS, SEAT_COLS, SEAT_ROWS } from "../../shared/protocol";
 import { Cursor } from "./Cursor";
 import { usePointerGrid } from "./usePointerGrid";
 
@@ -13,7 +13,7 @@ interface PlayerManagerProps {
 
 /** A calm, dedicated place to manage seats without interrupting a game. */
 export function PlayerManager({ players, subscribe, hostPlayer, onKick }: PlayerManagerProps) {
-  const { cursorRef, gridRef, hoveredIndex } = usePointerGrid(subscribe, MAX_PLAYERS, 1, () => {}, hostPlayer);
+  const { cursorRef, gridRef, hoveredIndex } = usePointerGrid(subscribe, SEAT_COLS, SEAT_ROWS, () => {}, hostPlayer);
   const hoveredRef = useRef(hoveredIndex);
   hoveredRef.current = hoveredIndex;
   const onKickRef = useRef(onKick);

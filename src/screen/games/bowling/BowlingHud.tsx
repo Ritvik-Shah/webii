@@ -2,6 +2,9 @@ import { FRAME_COUNT, currentScore, frameTotals, rollGlyph } from "./score";
 import type { PlayerInfo } from "../types";
 import type { BowlingHudState } from "./Bowling";
 
+/** Above this many players, the scorecard collapses to a standings strip. */
+const CARDS_SHOWN = 4;
+
 interface BowlingHudProps {
   hud: BowlingHudState;
   players: PlayerInfo[];
@@ -19,12 +22,19 @@ export function BowlingHud({ hud, players, spectating = false }: BowlingHudProps
   const best = Math.max(...scores);
   const multiplayer = players.length > 1;
   const activePlayer = players[hud.turnIndex];
+  // Ten full ten-frame cards will not fit on a screen. Past a few players
+  // only whoever is bowling gets their card shown, and everyone else is a
+  // running-total strip underneath it.
+  const crowded = players.length > CARDS_SHOWN;
+  const shownCards = crowded
+    ? hud.cards.map((card, i) => ({ card, i })).filter(({ i }) => i === hud.turnIndex)
+    : hud.cards.map((card, i) => ({ card, i }));
 
   return (
     <>
 
       <div className={`bowling-scorecard${multiplayer ? " is-multi" : ""}`}>
-        {hud.cards.map((card, playerIndex) => {
+        {shownCards.map(({ card, i: playerIndex }) => {
           const totals = frameTotals(card);
           const isUp = playerIndex === hud.turnIndex && hud.phase !== "final";
           return (
@@ -61,6 +71,20 @@ export function BowlingHud({ hud, players, spectating = false }: BowlingHudProps
           );
         })}
       </div>
+
+      {crowded && (
+        <div className="bowling-standings">
+          {players.map((info, i) => (
+            <span
+              key={info.player}
+              className={`bowling-standing${i === hud.turnIndex ? " is-up" : ""}${scores[i] === best ? " is-best" : ""}`}
+            >
+              <span className="bowling-standing-who">P{info.player}</span>
+              <span className="bowling-standing-score">{scores[i]}</span>
+            </span>
+          ))}
+        </div>
+      )}
 
       <div className="bowling-status">
         <span className="bowling-status-frame">Frame {hud.frameIndex + 1}</span>

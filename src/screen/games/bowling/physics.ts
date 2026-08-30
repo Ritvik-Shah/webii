@@ -11,8 +11,6 @@ import {
   GUTTER_DEPTH,
   GUTTER_WIDTH,
   LANE_HALF_WIDTH,
-  LANE_LENGTH,
-  MAX_HOOK_ACCEL,
   PIN_LAYOUT,
   PIN_RADIUS,
 } from "./constants";
@@ -23,8 +21,6 @@ export interface BallState {
   z: number;
   vx: number;
   vz: number;
-  /** -1 hooks hard left, +1 hooks hard right, 0 rolls straight. */
-  spin: number;
   released: boolean;
   inGutter: boolean;
   /** Accumulated roll angle, radians -- the renderer spins the ball by this. */
@@ -86,7 +82,6 @@ export function createSimulation(standingPins: number[]): Simulation {
       z: 0,
       vx: 0,
       vz: 0,
-      spin: 0,
       released: false,
       inGutter: false,
       roll: 0,
@@ -150,13 +145,6 @@ export function step(sim: Simulation, dt: number): StepEvents {
 }
 
 function stepBall(ball: BallState, dt: number, events: StepEvents) {
-  if (!ball.inGutter) {
-    // The hook builds as the ball travels: it skids early, then bites and
-    // curves harder over the back half of the lane, the way real spin does.
-    const progress = Math.min(1, Math.max(0, -ball.z / LANE_LENGTH));
-    ball.vx += ball.spin * MAX_HOOK_ACCEL * Math.pow(progress, 1.7) * dt;
-  }
-
   ball.x += ball.vx * dt;
   ball.z += ball.vz * dt;
 
@@ -172,7 +160,6 @@ function stepBall(ball: BallState, dt: number, events: StepEvents) {
   if (!ball.inGutter && Math.abs(ball.x) > LANE_HALF_WIDTH - BALL_RADIUS * 0.35) {
     ball.inGutter = true;
     ball.vx = 0;
-    ball.spin = 0;
     events.enteredGutter = true;
   }
 

@@ -34,13 +34,13 @@ const BACK_WALL_Z = DECK_BACK_Z - 1.6;
  * capping boards between them -- where the carpet starts. */
 const LANE_BED_HALF_WIDTH = 2 * LANE_PITCH + LANE_HALF_WIDTH + GUTTER_WIDTH + 0.21;
 
-export type CameraShot = "intro" | "aim" | "release" | "follow" | "pins" | "result" | "gutter";
+export type CameraShot = "intro" | "aim" | "lineup" | "release" | "follow" | "pins" | "result" | "gutter";
 
-/** How far down-lane the dashed aiming guide reaches, in metres. */
-const GUIDE_LENGTH = 11;
-/** Lateral drift a full-strength hook has accumulated by the guide's far
- * end -- measured from the simulation, so the guide doesn't lie. */
-const GUIDE_HOOK_AT_END = 0.056;
+/** The aiming guide runs the full length of the lane, so the line can be
+ * read all the way to the pins -- which is the whole point of the Up-button
+ * close-up view. */
+const GUIDE_LENGTH = -HEAD_PIN_Z - 0.5;
+const GUIDE_DASH_COUNT = 46;
 
 export interface SceneView {
   shot: CameraShot;
@@ -50,8 +50,6 @@ export interface SceneView {
   bowlerX: number;
   /** Aim angle in radians, used to point the aiming guide. */
   aimAngle: number;
-  /** -1..1; drives the spin arrow on the aiming guide. */
-  spin: number;
   /** Show the dashed aiming guide down the lane. */
   showGuide: boolean;
   /** 0 = rack fully up, 1 = sweeper fully across the deck. */
@@ -686,10 +684,12 @@ export function createBowlingScene(container: HTMLElement, mii: Mii): BowlingSce
 
   // --- aiming guide -----------------------------------------------------
   const guide = new THREE.Group();
-  const guideMat = track(new THREE.MeshBasicMaterial({ color: 0xffe9a8, transparent: true, opacity: 0.75 }));
-  const guideDashGeo = track(new THREE.PlaneGeometry(0.035, 0.24));
+  // Cool blue, not the warm yellow it started as: the lane is pale honey
+  // wood and a warm guide washed straight into it.
+  const guideMat = track(new THREE.MeshBasicMaterial({ color: 0x24c8ff, transparent: true, opacity: 0.9 }));
+  const guideDashGeo = track(new THREE.PlaneGeometry(0.055, 0.3));
   const guideDashes: THREE.Mesh[] = [];
-  for (let i = 0; i < 26; i++) {
+  for (let i = 0; i < GUIDE_DASH_COUNT; i++) {
     const dash = new THREE.Mesh(guideDashGeo, guideMat);
     dash.rotation.x = -Math.PI / 2;
     guide.add(dash);
@@ -725,9 +725,22 @@ export function createBowlingScene(container: HTMLElement, mii: Mii): BowlingSce
         targetLook.set(view.bowlerX - 0.1, 1.02, 0.8);
         break;
       case "aim":
-        targetPos.set(view.bowlerX * 0.5, 1.95, 4.5);
-        targetLook.set(view.bowlerX * 0.8, 0.5, -8.5);
+        // Biased to the bowling-arm side of the line and lifted a little, so
+        // the Mii sits right of centre and never stands on top of their own
+        // aiming line -- which they did when moved to the left of the lane.
+        targetPos.set(view.bowlerX * 0.5 - 0.3, 2.12, 4.5);
+        targetLook.set(view.bowlerX * 0.8 - 0.06, 0.48, -8.5);
         break;
+      case "lineup": {
+        // Up-button close-up: ride the aim line most of the way down the
+        // lane and look straight along it at the rack, so the player can see
+        // exactly where their line lands relative to the pocket.
+        const lineAt = (z: number) => view.bowlerX + Math.tan(view.aimAngle) * -z;
+        const standoff = HEAD_PIN_Z + 6.4;
+        targetPos.set(lineAt(standoff), 0.62, standoff);
+        targetLook.set(lineAt(HEAD_PIN_Z), 0.28, HEAD_PIN_Z);
+        break;
+      }
       case "release":
         targetPos.set(view.bowlerX * 0.6 + 0.5, 1.5, 3.2);
         targetLook.set(view.bowlerX * 0.6, 0.36, -7.5);
@@ -815,16 +828,11 @@ export function createBowlingScene(container: HTMLElement, mii: Mii): BowlingSce
       for (let i = 0; i < guideDashes.length; i++) {
         const t = i / guideDashes.length;
         const z = -0.4 - t * GUIDE_LENGTH;
-        // Show where the hook will actually take the ball, not just a
-        // straight line -- the guide curves the way the roll will. The
-        // coefficients below are measured against the real ball path, so a
-        // curved guide lands where the ball lands.
-        const drift = Math.tan(view.aimAngle) * -z + view.spin * GUIDE_HOOK_AT_END * Math.pow(t, 2.7);
+        // The ball rolls straight, so the guide is the literal path it will
+        // take -- what the player lines up against the pocket.
         const dash = guideDashes[i];
-        dash.position.set(view.bowlerX + drift, 0.006, z);
-        const material = dash.material as THREE.MeshBasicMaterial;
-        material.opacity = 0.75;
-        dash.scale.setScalar(1 - t * 0.35);
+        dash.position.set(view.bowlerX + Math.tan(view.aimAngle) * -z, 0.006, z);
+        dash.scale.setScalar(1 - t * 0.3);
       }
     }
 

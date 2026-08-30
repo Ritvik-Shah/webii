@@ -1,7 +1,7 @@
 /* Bowling mini-game -- the alley itself is a WebGL scene (see scene.ts);
    everything here is the HUD chrome floating over it: the scorecard strip,
-   the frame/ball readout, the hook meter, result banners and the game-over
-   card. All classes are prefixed `bowling-` so this global-scope stylesheet
+   the frame/ball readout, the aim-mode panel, result banners and the
+   game-over card. All classes are prefixed `bowling-` so this global-scope stylesheet
    can't collide with any other game or the app shell. */
 
 .bowling-root {
@@ -155,14 +155,14 @@
   opacity: 0.75;
 }
 
-/* ---------- Hook meter ---------- */
+/* ---------- Aim mode panel ---------- */
 
 .bowling-aimpanel {
   position: absolute;
   right: 1.1rem;
   bottom: 3.2rem;
-  width: clamp(9rem, 16vw, 13rem);
-  padding: 0.6rem 0.8rem 0.7rem;
+  width: clamp(8.5rem, 14vw, 11rem);
+  padding: 0.6rem 0.8rem 0.65rem;
   border-radius: 12px;
   background: rgba(12, 20, 38, 0.62);
   border: 1px solid rgba(180, 214, 255, 0.3);
@@ -175,51 +175,63 @@
   letter-spacing: 0.14em;
   text-transform: uppercase;
   opacity: 0.7;
-  margin-bottom: 0.4rem;
+  margin-bottom: 0.45rem;
 }
 
-.bowling-hookmeter-track {
-  position: relative;
-  height: 0.5rem;
-  border-radius: 999px;
-  background: linear-gradient(90deg, #4f9fd6, rgba(255, 255, 255, 0.25), #f4a300);
-}
-
-.bowling-hookmeter-centre {
-  position: absolute;
-  left: 50%;
-  top: -3px;
-  bottom: -3px;
-  width: 2px;
-  background: rgba(255, 255, 255, 0.75);
-  transform: translateX(-50%);
-}
-
-.bowling-hookmeter-thumb {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 0.85rem;
-  height: 0.85rem;
-  border-radius: 50%;
-  background: #ffffff;
-  border: 2px solid #16324a;
-  transform: translate(-50%, -50%);
-}
-
-.bowling-hookmeter-labels {
+.bowling-modes {
   display: flex;
-  justify-content: space-between;
-  margin-top: 0.3rem;
+  gap: 4px;
+}
+
+.bowling-mode {
+  flex: 1;
+  text-align: center;
+  padding: 0.3rem 0;
+  border-radius: 7px;
+  font-size: clamp(0.68rem, 1.15vw, 0.88rem);
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(226, 238, 255, 0.55);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.bowling-mode.is-on {
+  background: #f4a300;
+  color: #23180a;
+}
+
+.bowling-aimpanel-note {
+  margin-top: 0.4rem;
   font-size: clamp(0.55rem, 0.9vw, 0.7rem);
-  opacity: 0.65;
+  opacity: 0.6;
+}
+
+.bowling-zoomtag {
+  position: absolute;
+  left: 50%;
+  bottom: 3.4rem;
+  transform: translateX(-50%);
+  padding: 0.35rem 0.9rem;
+  border-radius: 999px;
+  background: rgba(12, 20, 38, 0.66);
+  border: 1px solid rgba(180, 214, 255, 0.3);
+  font-size: clamp(0.7rem, 1.2vw, 0.9rem);
+  font-weight: 700;
+  z-index: 3;
+  pointer-events: none;
 }
 
 .bowling-winding {
-  margin-top: 0.55rem;
-  font-size: clamp(0.65rem, 1.1vw, 0.82rem);
-  font-weight: 700;
+  position: absolute;
+  left: 50%;
+  bottom: 3.4rem;
+  transform: translateX(-50%);
+  font-size: clamp(0.95rem, 2vw, 1.4rem);
+  font-weight: 800;
   color: #ffd98a;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+  z-index: 3;
+  pointer-events: none;
   animation: bowling-pulse 0.7s ease-in-out infinite alternate;
 }
 

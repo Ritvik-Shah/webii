@@ -3,7 +3,7 @@
 // the bowler stands near z = 0 (the foul line) facing the pins at z = -18.29,
 // and the camera sits behind them at positive z. With the camera looking
 // down -Z in three.js's default orientation that makes world +X screen-right,
-// which keeps every "move left / hook right" sign in this game intuitive.
+// which keeps every "move left, aim right" sign in this game intuitive.
 
 /** Distance from the foul line to the head pin. */
 export const LANE_LENGTH = 18.29;
@@ -60,15 +60,33 @@ export const MAX_BALL_SPEED = 9.6;
 export const SWING_MIN_ACCEL = 6;
 export const SWING_MAX_ACCEL = 26;
 
-// The strike pocket sits about 7 cm either side of the head pin, so every
-// aiming control below is sized against that: the stance covers the width of
-// the lane coarsely, while the aim angle and the hook each shift the ball by
-// a few pocket-widths at the pins -- enough to correct a bad stance, not
-// enough that a centred setup can be steered into a gutter by accident.
+// The strike pocket sits about 7 cm either side of the head pin, so the two
+// aiming controls are sized against that. Left/Right slide the bowler across
+// the approach; pressing A switches the same two buttons over to rotating
+// the bowler, which swings the whole line. Between them they cover the lane
+// coarsely and the pocket finely.
 
 /** How far left/right of lane centre the bowler may stand. */
 export const STANCE_LIMIT = 0.36;
-/** Aim angle limit, radians, off straight-down-lane -- about +/-25 cm at the pins. */
-export const AIM_LIMIT = 0.014;
-/** Spin ranges from -1 (hooks left) to +1 (hooks right). */
-export const MAX_HOOK_ACCEL = 0.45;
+/** Lane-metres a single Left/Right tap moves the stance. */
+export const STANCE_STEP = 0.015;
+/** Lane-metres per second while Left/Right is held down. */
+export const STANCE_RATE = 0.16;
+
+/** Aim angle limit, radians. Wide enough to steer the ball into either
+ * gutter from the middle of the lane, exactly like the real game -- rotating
+ * is a deliberate mode, so it gets real authority. */
+export const AIM_LIMIT = 0.04;
+/** Radians a single Left/Right tap rotates the bowler (~3.6 cm at the pins). */
+export const AIM_STEP = 0.002;
+/** Radians per second while Left/Right is held down. */
+export const AIM_RATE = 0.02;
+
+/** How long Left/Right must be held before it starts repeating, so a quick
+ * tap is a single fine step rather than the start of a slide. */
+export const HOLD_REPEAT_DELAY_MS = 280;
+
+/** Multiplier turning the aim angle into visible body yaw. A real 2-degree
+ * rotation would be imperceptible on a stubby Mii, so the model turns
+ * further than the ball actually does. */
+export const AIM_YAW_GAIN = 4;

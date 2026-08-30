@@ -3,10 +3,16 @@ import "./bowling.css";
 import type { GameProps } from "../types";
 import {
   AIM_LIMIT,
+  AIM_RATE,
+  AIM_STEP,
+  AIM_YAW_GAIN,
   BALL_RADIUS,
+  HOLD_REPEAT_DELAY_MS,
   MAX_BALL_SPEED,
   MIN_BALL_SPEED,
   STANCE_LIMIT,
+  STANCE_RATE,
+  STANCE_STEP,
   SWING_MAX_ACCEL,
   SWING_MIN_ACCEL,
 } from "./constants";
@@ -58,22 +64,18 @@ const FINAL_AUTO_EXIT_MS = 20000;
 /** Where down the approach the ball meets the boards. */
 const LAUNCH_Z = 0.25;
 
-/** Degrees of phone twist that map to a full-strength hook. */
-const TWIST_FOR_FULL_SPIN = 42;
-
 /** Shoulder angle that holds the ball out in front at chest height. */
 const READY_ARM_ANGLE = 0.5;
 /** How far the bowling arm is held out to the side in the ready pose. */
 const READY_ARM_SPREAD = 0.5;
 
-/** Lane-metres of stance per unit of pointer offset. Deliberately low: the
- * strike pocket is only ~3.5 cm wide, so a big tilt buying a small step is
- * what makes the stance precise enough to aim with. */
-const STANCE_SENSITIVITY = 0.85;
-
 const ALL_PINS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 
 type Phase = "intro" | "aim" | "wind" | "swing" | "roll" | "settle" | "result" | "reset" | "final";
+/** Left/Right either slide the bowler across the approach or rotate them,
+ * with A switching between the two -- the real game's aiming scheme. */
+type AimMode = "move" | "rotate";
+type CameraView = "normal" | "lineup";
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
@@ -103,13 +105,16 @@ interface GameState {
   bowlerX: number;
   targetBowlerX: number;
   aimAngle: number;
-  /** D-pad hook trim, added to whatever twist the phone reports. */
-  spinTrim: number;
-  spin: number;
+  /** Which of the two things Left/Right currently adjusts. A toggles it. */
+  aimMode: AimMode;
+  /** Normal over-the-shoulder view, or the Up-button close-up on the pins. */
+  cameraView: CameraView;
+  /** -1 / +1 while Left or Right is held, 0 otherwise. */
+  heldDir: number;
+  /** When the held direction went down, for the tap-then-repeat behaviour. */
+  heldSince: number;
   /** Peak linear acceleration seen while B was held, m/s^2. */
   peakAccel: number;
-  gammaAtGrab: number | null;
-  gammaLatest: number | null;
   /** Arm angle at the moment the forward swing started. */
   swingFrom: number;
   sweeper: number;
@@ -130,14 +135,13 @@ interface Hud {
   banner: string | null;
   bannerKind: "strike" | "spare" | "split" | "count" | "gutter" | null;
   phase: Phase;
+  aimMode: AimMode;
+  cameraView: CameraView;
 }
 
 export function Bowling({ send, subscribe, onExit, mii }: GameProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<BowlingScene | null>(null);
-  // The hook meter tracks the phone's twist in real time, so it's driven
-  // straight from the render loop rather than through React state.
-  const hookThumbRef = useRef<HTMLSpanElement>(null);
 
   const [hud, setHud] = useState<Hud>({
     card: emptyCard(),
@@ -146,6 +150,8 @@ export function Bowling({ send, subscribe, onExit, mii }: GameProps) {
     banner: null,
     bannerKind: null,
     phase: "intro",
+    aimMode: "move",
+    cameraView: "normal",
   });
 
   const gameRef = useRef<GameState | null>(null);
@@ -161,11 +167,11 @@ export function Bowling({ send, subscribe, onExit, mii }: GameProps) {
       bowlerX: 0,
       targetBowlerX: 0,
       aimAngle: 0,
-      spinTrim: 0,
-      spin: 0,
+      aimMode: "move",
+      cameraView: "normal",
+      heldDir: 0,
+      heldSince: 0,
       peakAccel: 0,
-      gammaAtGrab: null,
-      gammaLatest: null,
       swingFrom: 0,
       sweeper: 0,
       pose: { ...NEUTRAL_POSE },
@@ -198,6 +204,8 @@ export function Bowling({ send, subscribe, onExit, mii }: GameProps) {
       frameIndex: game.frameIndex,
       ballNumber: game.card[game.frameIndex].length + 1,
       phase: game.phase,
+      aimMode: game.aimMode,
+      cameraView: game.cameraView,
       ...extra,
     }));
   }, []);
@@ -265,10 +273,10 @@ export function Bowling({ send, subscribe, onExit, mii }: GameProps) {
 
       game.sim = createSimulation(game.standing);
       game.aimAngle = 0;
-      game.spinTrim = 0;
-      game.spin = 0;
+      game.aimMode = "move";
+      game.cameraView = "normal";
+      game.heldDir = 0;
       game.peakAccel = 0;
-      game.gammaAtGrab = null;
       game.scored = false;
       game.celebrating = null;
       game.bannerShown = null;
@@ -300,7 +308,6 @@ export function Bowling({ send, subscribe, onExit, mii }: GameProps) {
     ball.z = LAUNCH_Z;
     ball.vx = Math.sin(game.aimAngle) * power;
     ball.vz = -Math.cos(game.aimAngle) * power;
-    ball.spin = game.spin;
 
     game.rollSound = startRoll();
     sendRef.current({ type: "haptic", pattern: [45] });
@@ -323,7 +330,7 @@ export function Bowling({ send, subscribe, onExit, mii }: GameProps) {
       // Deep enough that the hand -- and so the ball -- reaches the boards.
       pose.crouch = damp(pose.crouch, 1, 14, dt);
       pose.offArmAngle = damp(pose.offArmAngle, -0.5, 10, dt);
-      pose.yaw = damp(pose.yaw, game.aimAngle * 1.2, 8, dt);
+      pose.yaw = damp(pose.yaw, game.aimAngle * AIM_YAW_GAIN, 8, dt);
       pose.headTurn = damp(pose.headTurn, 0, 8, dt);
       pose.headPitch = damp(pose.headPitch, 0, 8, dt);
       // The arm tucks fully in line with the body as it swings through, which
@@ -338,7 +345,7 @@ export function Bowling({ send, subscribe, onExit, mii }: GameProps) {
     let offArmTarget = READY_ARM_ANGLE;
     let leanTarget = 0.07;
     let crouchTarget = 0.12;
-    let yawTarget = game.aimAngle * 0.8;
+    let yawTarget = game.aimAngle * AIM_YAW_GAIN;
     let headTurnTarget = 0;
     let headPitchTarget = 0;
     let spreadTarget = 0.12;
@@ -450,6 +457,7 @@ export function Bowling({ send, subscribe, onExit, mii }: GameProps) {
       const game = gameRef.current!;
       game.timer += dt;
 
+      applyHeldDirection(game, dt, now);
       advancePhase(game, dt);
       updatePose(game, dt);
 
@@ -459,15 +467,26 @@ export function Bowling({ send, subscribe, onExit, mii }: GameProps) {
         shot: game.shot,
         bowlerX: game.bowlerX,
         aimAngle: game.aimAngle,
-        spin: game.spin,
         showGuide: game.phase === "aim" || game.phase === "wind",
         sweeper: game.sweeper,
         pose: game.pose,
       };
       scene.render(dt, game.sim, view);
+    }
 
-      if (hookThumbRef.current) {
-        hookThumbRef.current.style.left = `${50 + clamp(game.spin, -1, 1) * 50}%`;
+    /** Holding Left or Right slides continuously after a short delay, so a
+     * tap is one fine step and a hold crosses the lane without 50 presses. */
+    function applyHeldDirection(game: GameState, dt: number, now: number) {
+      if (game.phase !== "aim" || game.heldDir === 0) return;
+      if (now - game.heldSince < HOLD_REPEAT_DELAY_MS) return;
+      if (game.aimMode === "move") {
+        game.targetBowlerX = clamp(
+          game.targetBowlerX + game.heldDir * STANCE_RATE * dt,
+          -STANCE_LIMIT,
+          STANCE_LIMIT,
+        );
+      } else {
+        game.aimAngle = clamp(game.aimAngle + game.heldDir * AIM_RATE * dt, -AIM_LIMIT, AIM_LIMIT);
       }
     }
 
@@ -482,6 +501,9 @@ export function Bowling({ send, subscribe, onExit, mii }: GameProps) {
           break;
 
         case "aim":
+          game.shot = game.cameraView === "lineup" ? "lineup" : "aim";
+          break;
+
         case "wind":
           game.shot = "aim";
           break;
@@ -589,28 +611,13 @@ export function Bowling({ send, subscribe, onExit, mii }: GameProps) {
     return subscribe((msg) => {
       const game = gameRef.current!;
 
-      if (msg.type === "pointer") {
-        // Pointing left/right walks the bowler across the approach, the way
-        // stepping left or right does on a real lane.
-        if (game.phase === "aim") {
-          game.targetBowlerX = clamp(msg.ox * STANCE_SENSITIVITY, -STANCE_LIMIT, STANCE_LIMIT);
-        }
-        return;
-      }
-
       if (msg.type === "motion") {
-        const { ax, ay, az, gamma } = msg.sample;
+        // The only thing the phone's motion is used for is how hard the
+        // swing was, which sets ball speed.
+        const { ax, ay, az } = msg.sample;
         if (game.phase === "wind" && ax !== null && ay !== null && az !== null) {
           const magnitude = Math.abs(Math.sqrt(ax * ax + ay * ay + az * az) - 9.81);
           game.peakAccel = Math.max(game.peakAccel, magnitude);
-        }
-        if (gamma !== null) {
-          game.gammaLatest = gamma;
-          if (game.phase === "wind") {
-            if (game.gammaAtGrab === null) game.gammaAtGrab = gamma;
-            const twist = (gamma - game.gammaAtGrab) / TWIST_FOR_FULL_SPIN;
-            game.spin = clamp(game.spinTrim + twist, -1, 1);
-          }
         }
         return;
       }
@@ -622,7 +629,12 @@ export function Bowling({ send, subscribe, onExit, mii }: GameProps) {
           bDown.current = true;
           if (game.phase === "aim") {
             game.peakAccel = 0;
-            game.gammaAtGrab = game.gammaLatest;
+            game.heldDir = 0;
+            // Drop back out of the close-up so the swing is actually watchable.
+            if (game.cameraView === "lineup") {
+              game.cameraView = "normal";
+              pushHud(game);
+            }
             setPhase(game, "wind");
           }
         } else if (msg.state === "up") {
@@ -635,40 +647,60 @@ export function Bowling({ send, subscribe, onExit, mii }: GameProps) {
         return;
       }
 
+      // Left/Right are the only buttons that care about being released.
+      if (msg.button === "LEFT" || msg.button === "RIGHT") {
+        const dir = msg.button === "LEFT" ? -1 : 1;
+        if (msg.state === "up") {
+          if (game.heldDir === dir) game.heldDir = 0;
+          return;
+        }
+        if (game.phase !== "aim" || game.heldDir === dir) return;
+        game.heldDir = dir;
+        game.heldSince = performance.now();
+        // One fine step on press; holding takes over from there.
+        if (game.aimMode === "move") {
+          game.targetBowlerX = clamp(game.targetBowlerX + dir * STANCE_STEP, -STANCE_LIMIT, STANCE_LIMIT);
+        } else {
+          game.aimAngle = clamp(game.aimAngle + dir * AIM_STEP, -AIM_LIMIT, AIM_LIMIT);
+        }
+        playBlip();
+        return;
+      }
+
       if (msg.state !== "down") return;
 
       switch (msg.button) {
-        case "LEFT":
-        case "RIGHT": {
-          const dir = msg.button === "LEFT" ? -1 : 1;
-          if (game.phase === "aim") {
-            game.aimAngle = clamp(game.aimAngle + dir * AIM_LIMIT * 0.07, -AIM_LIMIT, AIM_LIMIT);
-            playBlip();
-          }
-          break;
-        }
         case "UP":
-        case "DOWN": {
-          // Hook trim, so the game is fully playable without twisting the
-          // phone (and so a phone with no usable gamma reading still works).
-          const dir = msg.button === "DOWN" ? -1 : 1;
-          if (game.phase === "aim") {
-            game.spinTrim = clamp(game.spinTrim + dir * 0.06, -1, 1);
-            game.spin = game.spinTrim;
+          // Walk the camera down the lane for a close look at the line.
+          if (game.phase === "aim" && game.cameraView !== "lineup") {
+            game.cameraView = "lineup";
             playBlip();
+            pushHud(game);
           }
           break;
-        }
+        case "DOWN":
+          if (game.phase === "aim" && game.cameraView !== "normal") {
+            game.cameraView = "normal";
+            playBlip();
+            pushHud(game);
+          }
+          break;
         case "A":
           if (game.phase === "intro") {
             setPhase(game, "aim");
             game.shot = "aim";
+          } else if (game.phase === "aim") {
+            // Flip Left/Right between sliding the stance and rotating.
+            game.aimMode = game.aimMode === "move" ? "rotate" : "move";
+            game.heldDir = 0;
+            playBlip();
+            pushHud(game);
           } else if (game.phase === "final") {
             onExitRef.current();
           }
           break;
         case "ONE":
-          // Recentre the stance, for when the pointer has drifted.
+          // Back to dead centre, square to the lane.
           if (game.phase === "aim") {
             game.targetBowlerX = 0;
             game.aimAngle = 0;
@@ -679,7 +711,7 @@ export function Bowling({ send, subscribe, onExit, mii }: GameProps) {
           break;
       }
     });
-  }, [subscribe, setPhase]);
+  }, [subscribe, setPhase, pushHud]);
 
   // Auto-return to the Wii Menu a while after the game ends; HOME (handled
   // centrally by ScreenApp) and A both work immediately.
@@ -727,22 +759,22 @@ export function Bowling({ send, subscribe, onExit, mii }: GameProps) {
         <span className="bowling-status-ball">Ball {hud.ballNumber}</span>
       </div>
 
-      {(hud.phase === "aim" || hud.phase === "wind") && (
+      {hud.phase === "aim" && (
         <div className="bowling-aimpanel">
-          <div className="bowling-aimpanel-title">Hook</div>
-          <div className="bowling-hookmeter">
-            <div className="bowling-hookmeter-track">
-              <span className="bowling-hookmeter-centre" />
-              <span className="bowling-hookmeter-thumb" ref={hookThumbRef} />
-            </div>
-            <div className="bowling-hookmeter-labels">
-              <span>Left</span>
-              <span>Right</span>
-            </div>
+          <div className="bowling-aimpanel-title">Left / Right</div>
+          <div className="bowling-modes">
+            <span className={`bowling-mode${hud.aimMode === "move" ? " is-on" : ""}`}>Move</span>
+            <span className={`bowling-mode${hud.aimMode === "rotate" ? " is-on" : ""}`}>Rotate</span>
           </div>
-          {hud.phase === "wind" && <div className="bowling-winding">Swing and let go of B!</div>}
+          <div className="bowling-aimpanel-note">A to switch</div>
         </div>
       )}
+
+      {hud.phase === "aim" && hud.cameraView === "lineup" && (
+        <div className="bowling-zoomtag">Checking your line · ↓ to go back</div>
+      )}
+
+      {hud.phase === "wind" && <div className="bowling-winding">Swing and let go of B!</div>}
 
       {hud.banner && (
         <div className={`bowling-banner bowling-banner-${hud.bannerKind}`} key={`${hud.frameIndex}-${hud.banner}`}>
@@ -767,7 +799,7 @@ export function Bowling({ send, subscribe, onExit, mii }: GameProps) {
         {hud.phase === "intro"
           ? "A to skip"
           : hud.phase === "aim"
-            ? "Point to move · ←/→ aim · ↑/↓ hook · 1 to reset stance · Hold B, swing, release to bowl"
+            ? `←/→ ${hud.aimMode === "move" ? "move" : "rotate"} · A to switch · ↑ check your line · ↓ back · 1 to reset · Hold B, swing, release to bowl`
             : hud.phase === "wind"
               ? "Swing the remote forward and release B"
               : "HOME to exit"}

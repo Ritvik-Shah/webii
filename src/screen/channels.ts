@@ -13,7 +13,7 @@ export const CHANNELS: Channel[] = [
   { id: "charge", title: "Charge!", accent: "#c48a3b", status: "ready" },
   { id: "nes-upload", title: "NES Channel", accent: "#6b4fd6", status: "ready" },
   { id: "nds-channel", title: "DS Channel", accent: "#c93bc9", status: "ready" },
-  { id: "nes-1", title: "Retro Game 1", accent: "#4f9fd6", status: "soon" },
+  { id: "uno", title: "Uno", accent: "#d3323a", status: "ready" },
   { id: "photo", title: "Photo Channel", accent: "#f4a300", status: "soon" },
   { id: "weather", title: "Forecast Channel", accent: "#3bb5d0", status: "soon" },
   { id: "news", title: "News Channel", accent: "#c43bb0", status: "soon" },

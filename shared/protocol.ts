@@ -104,6 +104,7 @@ export type ControllerMessage =
   | RecenterMessage
   | ButtonMessage
   | MotionMessage
+  | PhoneActionMessage
   | PingMessage
   | PongMessage;
 
@@ -114,6 +115,89 @@ export type ControllerMessage =
  * the slot the room actually assigned.
  */
 export type StampedControllerMessage = ControllerMessage & { player?: number };
+
+// ---------------------------------------------------------------------------
+// Phone-side game views.
+//
+// For the motion games the phone is a dumb remote. Card and party games need
+// it to show something private -- your hand, your prompt -- and send back a
+// structured choice rather than a button press. Rather than shipping a phone
+// component per game, the host describes what it wants shown in this small
+// vocabulary and the phone renders it. Cards plus buttons covers Uno; buttons
+// plus a slider covers poker betting; text entry and a choice list cover the
+// Quiplash-style games.
+// ---------------------------------------------------------------------------
+
+/** A card in the player's hand. `playable` greys out illegal plays. */
+export interface PhoneCard {
+  id: string;
+  label: string;
+  /** Any CSS colour; the phone tints the card with it. */
+  color?: string;
+  playable?: boolean;
+}
+
+export interface PhoneAction {
+  id: string;
+  label: string;
+  style?: "primary" | "danger" | "muted";
+  disabled?: boolean;
+}
+
+export interface PhoneChoice {
+  id: string;
+  label: string;
+}
+
+/** Free-text entry, for the write-an-answer games. */
+export interface PhoneInput {
+  placeholder: string;
+  maxLength: number;
+  submitLabel: string;
+}
+
+/** Numeric entry, for bet sizing. */
+export interface PhoneSlider {
+  id: string;
+  label: string;
+  min: number;
+  max: number;
+  step: number;
+  value: number;
+  submitLabel: string;
+}
+
+export interface PhoneView {
+  title?: string;
+  subtitle?: string;
+  /** Shown large and calm -- "waiting for the others", a dealt result. */
+  note?: string;
+  cards?: PhoneCard[];
+  actions?: PhoneAction[];
+  choices?: PhoneChoice[];
+  input?: PhoneInput;
+  slider?: PhoneSlider;
+  /** Dims the whole view: it is somebody else's turn. */
+  waiting?: boolean;
+}
+
+/**
+ * Host -> one phone (via `to`): what that player should be looking at.
+ * A null view hands the phone back to the ordinary remote.
+ */
+export interface PhoneViewMessage {
+  type: "phone-view";
+  view: PhoneView | null;
+}
+
+/** Phone -> host: the player chose something in their view. */
+export interface PhoneActionMessage {
+  type: "action";
+  /** Matches the id of the card, action, or choice that was picked. */
+  id: string;
+  /** Text typed, or a slider amount. */
+  value?: string | number;
+}
 
 export interface GameStateMessage {
   type: "game-state";
@@ -178,6 +262,7 @@ export type ScreenMessage = (
   | GameStateMessage
   | HapticMessage
   | KickMessage
+  | PhoneViewMessage
   | TurnMessage
   | SnapshotMessage
   | PingMessage
@@ -200,6 +285,10 @@ export function isAssigned(msg: unknown): msg is AssignedMessage {
 
 export function isRemoved(msg: unknown): msg is RemovedMessage {
   return !!msg && typeof msg === "object" && (msg as { type?: string }).type === "removed";
+}
+
+export function isPhoneView(msg: unknown): msg is PhoneViewMessage {
+  return !!msg && typeof msg === "object" && (msg as { type?: string }).type === "phone-view";
 }
 
 export function isSnapshot(msg: unknown): msg is SnapshotMessage {

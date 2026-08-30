@@ -15,6 +15,7 @@ import type { PlayerInfo } from "./games/types";
 import { TargetPractice } from "./games/TargetPractice";
 import { Tanks } from "./games/Tanks";
 import { Charge } from "./games/Charge";
+import { Uno } from "./games/uno/Uno";
 import { NesUpload } from "./nes/NesUpload";
 import { NesGame1, NesGame2 } from "./nes/BundledGames";
 import { NdsChannel } from "./nds/NdsChannel";
@@ -30,6 +31,7 @@ const GAME_SCREENS: Record<string, ComponentType<GameProps>> = {
   target: TargetPractice,
   tanks: Tanks,
   charge: Charge,
+  uno: Uno,
   "nes-upload": NesUpload,
   "nes-1": NesGame1,
   "nes-2": NesGame2,

@@ -1,10 +1,11 @@
 import { useCallback, useState } from "react";
 import { useParams } from "react-router-dom";
-import type { AssignedMessage, PresenceMessage, RemovedMessage, ScreenMessage, TurnMessage } from "../../shared/protocol";
-import { CLOSE_REMOVED, CLOSE_ROOM_FULL, MAX_PLAYERS, isAssigned, isPresence, isRemoved } from "../../shared/protocol";
+import type { AssignedMessage, PhoneView, PresenceMessage, RemovedMessage, ScreenMessage, TurnMessage } from "../../shared/protocol";
+import { CLOSE_REMOVED, CLOSE_ROOM_FULL, MAX_PLAYERS, isAssigned, isPhoneView, isPresence, isRemoved } from "../../shared/protocol";
 import { useRoomSocket } from "../lib/useRoomSocket";
 import { useMotionStream } from "./useMotionStream";
 import PermissionGate from "./PermissionGate";
+import PhoneGameView from "./PhoneGameView";
 import Wiimote from "./Wiimote";
 
 /**
@@ -34,6 +35,9 @@ export default function ControllerApp() {
   const [roomFull, setRoomFull] = useState(false);
   const [removed, setRemoved] = useState(false);
   const [turn, setTurn] = useState<TurnMessage | null>(null);
+  // When a card or party game is running, the host drives what this phone
+  // shows; a null view hands it back to the ordinary remote.
+  const [phoneView, setPhoneView] = useState<PhoneView | null>(null);
 
   const onMessage = useCallback(
     (msg: PresenceMessage | AssignedMessage | RemovedMessage | ScreenMessage) => {
@@ -59,6 +63,10 @@ export default function ControllerApp() {
         } catch {
           // Storage unavailable -- we just lose slot stickiness on reconnect.
         }
+        return;
+      }
+      if (isPhoneView(msg)) {
+        setPhoneView(msg.view);
         return;
       }
       if (msg.type === "turn") {
@@ -129,6 +137,10 @@ export default function ControllerApp() {
         </p>
       </div>
     );
+  }
+
+  if (phoneView) {
+    return <PhoneGameView view={phoneView} send={send} roomCode={roomCode} player={player} />;
   }
 
   return (

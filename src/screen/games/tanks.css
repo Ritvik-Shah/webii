@@ -151,3 +151,120 @@
     box-shadow: 0 10px 40px rgba(244, 201, 74, 0.55);
   }
 }
+
+/* =========================================================================
+   Deathmatch mode (2+ players). The campaign's own HUD is untouched; these
+   are the pieces only the versus match uses.
+   ========================================================================= */
+
+.tanks-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  min-width: min(26rem, 84vw);
+  padding: 1.7rem 2.3rem 1.4rem;
+  border-radius: 18px;
+  text-align: center;
+  background: rgba(246, 250, 255, 0.96);
+  color: #16324a;
+  border: 3px solid #ffffff;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.55);
+}
+
+.tanks-panel-title {
+  font-size: clamp(1.6rem, 4vw, 2.6rem);
+  font-weight: 800;
+}
+
+.tanks-panel-text {
+  font-size: clamp(0.8rem, 1.5vw, 1rem);
+  opacity: 0.7;
+}
+
+.tanks-versus-hud {
+  position: absolute;
+  top: 0.8rem;
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.tanks-versus-clock {
+  font-size: clamp(1.1rem, 2.4vw, 1.8rem);
+  font-weight: 800;
+  color: #eafaf0;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.7);
+}
+
+.tanks-versus-scores {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.tanks-versus-score {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.25rem 0.7rem 0.25rem 0.35rem;
+  border-radius: 999px;
+  background: rgba(20, 30, 18, 0.72);
+  /* Bordered in the player's own colour, matching their tank. */
+  border: 2px solid;
+  color: #eafaf0;
+}
+
+.tanks-versus-player {
+  font-size: clamp(0.65rem, 1.1vw, 0.82rem);
+  font-weight: 700;
+  opacity: 0.8;
+}
+
+.tanks-versus-points {
+  font-size: clamp(0.9rem, 1.7vw, 1.2rem);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.tanks-versus-results {
+  list-style: none;
+  margin: 0.3rem 0 0.2rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  width: 100%;
+}
+
+.tanks-versus-result {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.35rem 0.8rem;
+  border-radius: 11px;
+  background: rgba(22, 50, 74, 0.07);
+  font-size: clamp(0.85rem, 1.6vw, 1.05rem);
+}
+
+.tanks-versus-result.is-winner {
+  background: #ffe9b0;
+  font-weight: 800;
+}
+
+.tanks-versus-rank {
+  min-width: 1.3rem;
+  font-weight: 800;
+  opacity: 0.55;
+}
+
+.tanks-versus-who {
+  flex: 1;
+  text-align: left;
+  white-space: nowrap;
+}

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import "./charge.css";
 import type { GameProps } from "./types";
+import { TurnRounds, type RoundProps } from "./TurnRounds";
 import { useGameCanvas } from "./useGameCanvas";
 import { useSwing } from "./useSwing";
 import { MiiAvatar } from "../mii/MiiAvatar";
@@ -546,14 +547,20 @@ interface BannerState {
   text: string;
 }
 
-export function Charge({ send, subscribe, onExit, players }: GameProps) {
-  // These games are single-player; the host is whoever started them.
-  const mii = players[0].mii;
+/**
+ * One player's timed run. Rendered by TurnRounds, which remounts it per
+ * player and collects the score when the clock runs out.
+ */
+function ChargeRun({ subscribe, send, mii, onFinish }: RoundProps) {
   const engineRef = useRef<EngineState>(createEngineState());
   const riderRef = useRef<HTMLDivElement | null>(null);
 
   const [phase, setPhase] = useState<Phase>("playing");
   const [score, setScore] = useState(0);
+  // Mirrored so the end-of-run timeout reads the final value rather than the
+  // one captured when the effect was set up.
+  const scoreRef = useRef(0);
+  scoreRef.current = score;
   const [streak, setStreak] = useState(0);
   const [bestStreak, setBestStreak] = useState(0);
   const [timeLeft, setTimeLeft] = useState(RUN_SECONDS);
@@ -723,16 +730,17 @@ export function Charge({ send, subscribe, onExit, players }: GameProps) {
 
   const canvasRef = useGameCanvas(draw);
 
-  // Once the run ends, hold the final tally briefly then hand control back
-  // to the Wii Menu automatically (HOME still works anytime, handled
-  // centrally by ScreenApp).
+  // Once the clock runs out, hold the tally briefly and then hand the score
+  // up: TurnRounds decides whether that's the next player or the results.
+  const onFinishRef = useRef(onFinish);
+  onFinishRef.current = onFinish;
   useEffect(() => {
     if (phase !== "final") return;
-    finalTimeoutRef.current = window.setTimeout(() => onExit(), FINAL_HOLD_MS);
+    finalTimeoutRef.current = window.setTimeout(() => onFinishRef.current(scoreRef.current), FINAL_HOLD_MS);
     return () => {
       if (finalTimeoutRef.current !== null) window.clearTimeout(finalTimeoutRef.current);
     };
-  }, [phase, onExit]);
+  }, [phase]);
 
   // Clear any timers this component owns on unmount (the rAF loop itself is
   // owned and cleaned up by useGameCanvas).
@@ -780,7 +788,6 @@ export function Charge({ send, subscribe, onExit, players }: GameProps) {
             <div className="charge-final-title">Run complete!</div>
             <div className="charge-final-score">{score} pts</div>
             <div className="charge-final-streak">Best streak: {bestStreak}</div>
-            <div className="charge-final-sub">Returning to the Wii Menu…</div>
           </div>
         )}
       </div>
@@ -789,5 +796,23 @@ export function Charge({ send, subscribe, onExit, players }: GameProps) {
         Tilt forward/back to speed up or brake · tilt left/right to steer · flick up to jump · HOME to exit
       </div>
     </div>
+  );
+}
+
+/**
+ * Charge! takes turns: each player rides one timed run, the turn passes when
+ * their clock runs out, and the highest score wins. Solo play is unchanged.
+ */
+export function Charge({ send, subscribe, onExit, players }: GameProps) {
+  return (
+    <TurnRounds
+      players={players}
+      send={send}
+      subscribe={subscribe}
+      onExit={onExit}
+      title="Charge!"
+      scoreSuffix="pts"
+      renderRound={(round) => <ChargeRun {...round} />}
+    />
   );
 }

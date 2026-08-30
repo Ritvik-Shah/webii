@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import "./target-practice.css";
 import type { GameProps } from "./types";
+import { TurnRounds, type RoundProps } from "./TurnRounds";
 import { useGameCanvas } from "./useGameCanvas";
 import { usePointerPosition } from "../usePointerGrid";
 import { playButtonBlip, playLaunchChime } from "../../lib/sound";
@@ -32,7 +33,8 @@ const DUCK_SPEED_PCT_PER_SEC = 55;
 const DUCK_RADIUS_PCT = 5.5;
 
 const STAGE_TRANSITION_MS = 2200;
-const FINAL_AUTO_EXIT_MS = 6000;
+/** How long the "Range Complete!" card sits before the turn is handed on. */
+const RANGE_COMPLETE_MS = 3200;
 
 // The inner "range window" targets bounce around in, percent of play area --
 // kept inset from the canvas edges so targets never spawn under the HUD.
@@ -534,9 +536,12 @@ interface FinalStats {
   bestCombo: number;
 }
 
-export function TargetPractice({ send: _send, subscribe, onExit, players }: GameProps) {
-  // These games are single-player; the host is whoever started them.
-  const mii = players[0].mii;
+/**
+ * One player's trip through the range. Rendered by TurnRounds, which
+ * remounts it per player and collects the final score -- so this component
+ * only ever deals with a single run.
+ */
+function RangeRound({ subscribe, mii, onFinish }: RoundProps) {
   const [stage, setStage] = useState(1);
   const [phase, setPhase] = useState<Phase>("playing");
   const [paused, setPaused] = useState(false);
@@ -696,13 +701,15 @@ export function TargetPractice({ send: _send, subscribe, onExit, players }: Game
     });
   }, [subscribe, fireShot]);
 
-  // Auto-return to the Wii Menu a few seconds after the final score screen
-  // appears; HOME (handled centrally by ScreenApp) works at any time too.
+  // The round is over: hand the score up. TurnRounds owns what comes next,
+  // whether that's the next player or the results table.
+  const onFinishRef = useRef(onFinish);
+  onFinishRef.current = onFinish;
   useEffect(() => {
-    if (phase !== "final") return;
-    const timer = window.setTimeout(() => onExit(), FINAL_AUTO_EXIT_MS);
+    if (phase !== "final" || !finalStats) return;
+    const timer = window.setTimeout(() => onFinishRef.current(finalStats.score), RANGE_COMPLETE_MS);
     return () => window.clearTimeout(timer);
-  }, [phase, onExit]);
+  }, [phase, finalStats]);
 
   // Clean up the one timer this component owns outside the rAF loop (the
   // stage-clear -> next-stage transition); useGameCanvas already handles its
@@ -747,12 +754,28 @@ export function TargetPractice({ send: _send, subscribe, onExit, players }: Game
             <h2 className="target-practice-panel-title">Range Complete!</h2>
             <div className="target-practice-final-score">{finalStats.score}</div>
             <p className="target-practice-panel-text">Best combo: {finalStats.bestCombo}</p>
-            <p className="target-practice-panel-hint">Returning to the Wii Menu shortly · HOME to exit anytime</p>
           </div>
         </div>
       )}
 
       <div className="target-practice-hint">B to fire · 1 to pause · HOME to exit</div>
     </div>
+  );
+}
+
+/**
+ * Shooting Range takes turns: each player runs the whole five-stage range,
+ * then the scores are ranked. Solo play is exactly as it was.
+ */
+export function TargetPractice({ send, subscribe, onExit, players }: GameProps) {
+  return (
+    <TurnRounds
+      players={players}
+      send={send}
+      subscribe={subscribe}
+      onExit={onExit}
+      title="Shooting Range"
+      renderRound={(round) => <RangeRound {...round} />}
+    />
   );
 }

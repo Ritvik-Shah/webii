@@ -33,17 +33,34 @@ plumbing, the phone controller (motion permission, tilt-to-point, touch
 buttons), and the Wii Menu home screen shell (hover-wobble, chimes, launch
 animation).
 
+**Up to four phones can share a room.** The lobby shows a seat per player
+that fills in as people join, each phone is assigned a player number it
+keeps across reconnects, and every message it sends is stamped with that
+number by the room so the screen always knows who did what.
+
 Playable channels: **Bowling**, Shooting Range, Tanks!, Charge!, the Mii
 Channel (full creator + plaza), the NES Channel and the DS Channel. The
-remaining tiles are still "Coming soon" placeholders, and two-player support
-isn't built yet.
+remaining tiles are still "Coming soon" placeholders.
+
+How the games handle multiple players:
+
+- **Bowling** — a scorecard each, one shared frame counter, the lane passing
+  along after every completed frame. Whoever is up bowls with their own Mii
+  and a ball in their colour; everyone waiting stands on the neighbouring
+  lanes.
+- **Shooting Range** and **Charge!** — take turns. Each player plays a full
+  round, then the scores are ranked. Charge!'s turn passes when that
+  player's clock runs out.
+- **Tanks!** — solo is the level-clearing campaign it always was; with two
+  or more players it becomes a free-for-all deathmatch where everyone drives
+  at once and the most kills in 90 seconds wins.
 
 Bowling is a real 3D scene (three.js): a regulation-dimension lane with
-gutters, pin deck, pit, masking units and neighbouring lanes, your Mii
-rebuilt as a 3D character, ball/pin physics, camera cuts that follow the ball
-and cut to the deck on impact, and a full ten-frame scorecard. It's the only
-channel that pulls in three.js, so it's lazy-loaded and the rest of the app
-stays as light as it was before.
+gutters, pin deck, pit, masking units and neighbouring lanes, Miis rebuilt
+as 3D characters, ball/pin physics, camera cuts that follow the ball and cut
+to the deck on impact, and a full ten-frame scorecard. It's the only channel
+that pulls in three.js, so it's lazy-loaded and the rest of the app stays as
+light as it was before.
 
 ## Local development
 

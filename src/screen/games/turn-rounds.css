@@ -1,0 +1,101 @@
+/* Hand-off and results cards shared by the take-turns games (Shooting Range,
+   Charge!). The games themselves keep their own in-play chrome; this is only
+   what sits between and after rounds. */
+
+.turn-rounds-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at 50% 40%, #1d2a44, #0b1120);
+  font-family: "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
+  z-index: 6;
+}
+
+.turn-rounds-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: min(28rem, 84vw);
+  padding: 2rem 2.6rem 1.6rem;
+  border-radius: 20px;
+  text-align: center;
+  background: rgba(246, 250, 255, 0.96);
+  color: #16324a;
+  border: 3px solid #ffffff;
+  box-shadow: 0 20px 52px rgba(0, 0, 0, 0.6);
+}
+
+.turn-rounds-eyebrow {
+  font-size: clamp(0.65rem, 1.1vw, 0.8rem);
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #4a6a8a;
+}
+
+.turn-rounds-title {
+  font-size: clamp(1.5rem, 3.4vw, 2.3rem);
+  font-weight: 800;
+}
+
+.turn-rounds-name {
+  font-size: clamp(1rem, 2vw, 1.35rem);
+  font-weight: 700;
+}
+
+.turn-rounds-standing {
+  font-size: clamp(0.75rem, 1.3vw, 0.95rem);
+  color: #4a6a8a;
+  font-variant-numeric: tabular-nums;
+}
+
+.turn-rounds-hint {
+  margin-top: 0.5rem;
+  font-size: clamp(0.75rem, 1.3vw, 0.95rem);
+  opacity: 0.65;
+}
+
+.turn-rounds-results {
+  list-style: none;
+  margin: 0.5rem 0 0.2rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  width: 100%;
+}
+
+.turn-rounds-result {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.4rem 0.9rem;
+  border-radius: 12px;
+  background: rgba(22, 50, 74, 0.07);
+  font-size: clamp(0.9rem, 1.7vw, 1.1rem);
+}
+
+.turn-rounds-result.is-winner {
+  background: #ffe9b0;
+  font-weight: 800;
+}
+
+.turn-rounds-rank {
+  min-width: 1.3rem;
+  font-weight: 800;
+  opacity: 0.55;
+}
+
+.turn-rounds-who {
+  flex: 1;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.turn-rounds-score {
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+}

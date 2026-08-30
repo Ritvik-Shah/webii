@@ -11,6 +11,7 @@ interface MiiPlazaProps {
   onSelectMii: (mii: Mii) => void;
   onNewMii: () => void;
   hostPlayer?: number;
+  spectating?: boolean;
 }
 
 const COLS = 4;
@@ -25,7 +26,7 @@ const MAX_SAVED = COLS * ROWS - 1;
  * "New Mii" tile to start fresh) -- the hub screen real Wii Mii Channel
  * opens on, rather than jumping straight into an editor.
  */
-export function MiiPlaza({ subscribe, roster, onSelectMii, onNewMii, hostPlayer }: MiiPlazaProps) {
+export function MiiPlaza({ subscribe, roster, onSelectMii, onNewMii, hostPlayer, spectating = false }: MiiPlazaProps) {
   const shown = roster.slice(0, MAX_SAVED);
   const tileCount = shown.length + 1; // + the New Mii tile
 
@@ -60,7 +61,7 @@ export function MiiPlaza({ subscribe, roster, onSelectMii, onNewMii, hostPlayer 
         </div>
       </div>
 
-      <Cursor ref={cursorRef} />
+      {!spectating && <Cursor ref={cursorRef} />}
       <div className="mii-plaza-hint">Point and tap A to choose · HOME to exit</div>
     </div>
   );

@@ -10,6 +10,7 @@ import { DebugOverlay } from "./DebugOverlay";
 import { CHANNELS } from "./channels";
 import { MiiSelect } from "./mii/MiiSelect";
 import { MiiChannel } from "./mii/MiiChannel";
+import { PlayerManager } from "./PlayerManager";
 import type { PlayerInfo } from "./games/types";
 import { TargetPractice } from "./games/TargetPractice";
 import { Tanks } from "./games/Tanks";
@@ -39,6 +40,7 @@ type ScreenView =
   | { kind: "lobby" }
   | { kind: "menu" }
   | { kind: "mii-channel" }
+  | { kind: "player-manager" }
   | { kind: "mii-select"; channelId: string }
   | { kind: "game"; channelId: string; players: PlayerInfo[] };
 
@@ -166,6 +168,8 @@ export function ScreenApp() {
     // the editor.
     if (channelId === "mii") {
       setView({ kind: "mii-channel" });
+    } else if (channelId === "players") {
+      setView({ kind: "player-manager" });
     } else {
       setView({ kind: "mii-select", channelId });
     }
@@ -184,17 +188,26 @@ export function ScreenApp() {
   // nobody is watching, so a normal session pays nothing for the feature.
   const spectatorsRef = useRef(spectators);
   spectatorsRef.current = spectators;
-  const publishAs = useCallback(
-    (view: string) => (state: unknown) => {
-      if (spectatorsRef.current > 0) send({ type: "snapshot", view, state });
-    },
-    [send],
-  );
+  // One publisher per view, cached, so a given screen always gets the same
+  // function back. The screens that publish their own state list it as an
+  // effect dependency, and handing them a fresh closure on every render made
+  // those effects re-run -- and re-send -- on every render of this component.
+  const publishersRef = useRef(new Map<string, (state: unknown) => void>());
+  const publishAs = useCallback((view: string) => {
+    const cache = publishersRef.current;
+    const existing = cache.get(view);
+    if (existing) return existing;
+    const publish = (state: unknown) => {
+      if (spectatorsRef.current > 0) sendRef.current({ type: "snapshot", view, state });
+    };
+    cache.set(view, publish);
+    return publish;
+  }, []);
 
-  // The non-game screens don't need mirroring frame by frame -- a spectator
-  // only needs to know what the host is busy with.
+  // Static screens get a light heartbeat. Interactive screens publish their
+  // own current visual state so a watch screen sees the same menu or editor.
   useEffect(() => {
-    if (spectators === 0 || view.kind === "game") return;
+    if (spectators === 0 || view.kind === "game" || view.kind === "menu" || view.kind === "mii-select" || view.kind === "mii-channel") return;
     const publish = publishAs(view.kind);
     const tick = () => publish({ players, roomCode });
     tick();
@@ -238,9 +251,11 @@ export function ScreenApp() {
 
     switch (view.kind) {
       case "menu":
-        return <WiiMenu send={send} subscribe={subscribe} onLaunch={handleLaunch} hostPlayer={hostPlayer} />;
+        return <WiiMenu send={send} subscribe={subscribe} onLaunch={handleLaunch} hostPlayer={hostPlayer} onSnapshot={publishAs("menu")} />;
       case "mii-channel":
-        return <MiiChannel subscribe={subscribe} hostPlayer={hostPlayer} onExit={() => setView({ kind: "menu" })} />;
+        return <MiiChannel subscribe={subscribe} hostPlayer={hostPlayer} onExit={() => setView({ kind: "menu" })} onSnapshot={publishAs("mii-channel")} />;
+      case "player-manager":
+        return <PlayerManager players={players} subscribe={subscribe} hostPlayer={hostPlayer} onKick={handleKick} />;
       case "mii-select": {
         const channel = CHANNELS.find((c) => c.id === view.channelId);
         return (
@@ -249,6 +264,7 @@ export function ScreenApp() {
             channelTitle={channel?.title ?? "the game"}
             players={players}
             onDone={handleMiiSelected}
+            onSnapshot={publishAs("mii-select")}
           />
         );
       }

@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { ControllerMessage } from "../../../shared/protocol";
 import { usePointerGrid } from "../usePointerGrid";
 import { Cursor } from "../Cursor";
@@ -16,6 +16,20 @@ interface MiiSelectProps {
   /** Player numbers in the room, in join order. */
   players: number[];
   onDone: (picks: PlayerInfo[]) => void;
+  /** A watch screen draws the same board but never shows a local pointer. */
+  spectating?: boolean;
+  initialRoster?: Mii[];
+  initialQueue?: number[];
+  initialPicks?: PlayerInfo[];
+  onSnapshot?: (snapshot: MiiSelectSnapshot) => void;
+}
+
+export interface MiiSelectSnapshot {
+  kind: "mii-select";
+  channelTitle: string;
+  roster: Mii[];
+  queue: number[];
+  picks: PlayerInfo[];
 }
 
 const COLS = 4;
@@ -38,12 +52,12 @@ function buildRoster(): Mii[] {
  * that follow are turn-based anyway. Only the player currently up has their
  * remote wired to the cursor.
  */
-export function MiiSelect({ subscribe, channelTitle, players, onDone }: MiiSelectProps) {
-  const [roster] = useState<Mii[]>(buildRoster);
+export function MiiSelect({ subscribe, channelTitle, players, onDone, spectating = false, initialRoster, initialQueue, initialPicks, onSnapshot }: MiiSelectProps) {
+  const [roster] = useState<Mii[]>(() => initialRoster ?? buildRoster());
   // Frozen on mount: someone joining or dropping mid-pick shouldn't reorder
   // or resize the queue that's already underway.
-  const [queue] = useState<number[]>(() => (players.length > 0 ? players : [1]));
-  const [picks, setPicks] = useState<PlayerInfo[]>([]);
+  const [queue] = useState<number[]>(() => initialQueue ?? (players.length > 0 ? players : [1]));
+  const [picks, setPicks] = useState<PlayerInfo[]>(() => initialPicks ?? []);
 
   const currentPlayer = queue[picks.length];
 
@@ -59,6 +73,10 @@ export function MiiSelect({ subscribe, channelTitle, players, onDone }: MiiSelec
   );
 
   const { cursorRef, gridRef, hoveredIndex } = usePointerGrid(subscribe, COLS, ROWS, handleSelect, currentPlayer);
+
+  useEffect(() => {
+    onSnapshot?.({ kind: "mii-select", channelTitle, roster, queue, picks });
+  }, [channelTitle, roster, queue, picks, onSnapshot]);
 
   return (
     <div className="mii-select-root">
@@ -95,7 +113,7 @@ export function MiiSelect({ subscribe, channelTitle, players, onDone }: MiiSelec
           </div>
         ))}
       </div>
-      <Cursor ref={cursorRef} />
+      {!spectating && <Cursor ref={cursorRef} />}
       <div className="mii-select-hint">
         {queue.length > 1
           ? `Player ${currentPlayer}: point and tap A to choose`

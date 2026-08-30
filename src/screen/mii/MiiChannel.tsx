@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { ControllerMessage } from "../../../shared/protocol";
 import { randomMii, type Mii } from "./Mii";
 import { loadCustomMiis, saveCustomMii } from "./miiStorage";
@@ -11,6 +11,14 @@ interface MiiChannelProps {
   /** Only this player's remote drives the channel -- it's one person editing
    * one Mii, so four cursors fighting over it makes no sense. */
   hostPlayer?: number;
+  onSnapshot?: (snapshot: MiiChannelSnapshot) => void;
+}
+
+export interface MiiChannelSnapshot {
+  kind: "mii-channel";
+  mode: "plaza" | "editor";
+  roster: Mii[];
+  editorMii?: Mii;
 }
 
 type Mode = { kind: "plaza" } | { kind: "editor"; mii: Mii };
@@ -24,9 +32,13 @@ type Mode = { kind: "plaza" } | { kind: "editor"; mii: Mii };
  * in-screen "back to menu" button here, consistent with the Wii Menu/Mii
  * Select screens.
  */
-export function MiiChannel({ subscribe, hostPlayer }: MiiChannelProps) {
+export function MiiChannel({ subscribe, hostPlayer, onSnapshot }: MiiChannelProps) {
   const [roster, setRoster] = useState<Mii[]>(() => loadCustomMiis());
   const [mode, setMode] = useState<Mode>({ kind: "plaza" });
+
+  useEffect(() => {
+    onSnapshot?.({ kind: "mii-channel", mode: mode.kind, roster, editorMii: mode.kind === "editor" ? mode.mii : undefined });
+  }, [mode, roster, onSnapshot]);
 
   const handleSelectMii = (mii: Mii) => setMode({ kind: "editor", mii });
   const handleNewMii = () => setMode({ kind: "editor", mii: randomMii(`mii-${Date.now()}`) });

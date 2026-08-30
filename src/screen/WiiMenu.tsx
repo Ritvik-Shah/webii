@@ -11,12 +11,22 @@ interface WiiMenuProps {
   onLaunch: (channelId: string) => void;
   /** Only this player's remote drives the menu cursor. */
   hostPlayer?: number;
+  spectating?: boolean;
+  snapshot?: WiiMenuSnapshot;
+  onSnapshot?: (snapshot: WiiMenuSnapshot) => void;
+}
+
+export interface WiiMenuSnapshot {
+  kind: "menu";
+  hoveredIndex: number | null;
+  launchingIndex: number | null;
+  toast: string | null;
 }
 
 const GRID_COLS = 4;
 const GRID_ROWS = 3;
 
-export function WiiMenu({ subscribe, onLaunch, hostPlayer }: WiiMenuProps) {
+export function WiiMenu({ subscribe, onLaunch, hostPlayer, spectating = false, snapshot, onSnapshot }: WiiMenuProps) {
   const [launchingIndex, setLaunchingIndex] = useState<number | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const launchTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -55,6 +65,13 @@ export function WiiMenu({ subscribe, onLaunch, hostPlayer }: WiiMenuProps) {
   }, []);
 
   const { cursorRef, gridRef, hoveredIndex } = usePointerGrid(subscribe, GRID_COLS, GRID_ROWS, launchChannel, hostPlayer);
+  const displayHovered = snapshot?.hoveredIndex ?? hoveredIndex;
+  const displayLaunching = snapshot?.launchingIndex ?? launchingIndex;
+  const displayToast = snapshot?.toast ?? toast;
+
+  useEffect(() => {
+    onSnapshot?.({ kind: "menu", hoveredIndex, launchingIndex, toast });
+  }, [hoveredIndex, launchingIndex, toast, onSnapshot]);
 
   return (
     <div className="wii-menu">
@@ -65,8 +82,8 @@ export function WiiMenu({ subscribe, onLaunch, hostPlayer }: WiiMenuProps) {
         {CHANNELS.map((channel, index) => {
           const className = [
             "wii-tile",
-            index === hoveredIndex && "wii-tile-hover",
-            index === launchingIndex && "wii-tile-launch",
+            index === displayHovered && "wii-tile-hover",
+            index === displayLaunching && "wii-tile-launch",
           ]
             .filter(Boolean)
             .join(" ");
@@ -82,8 +99,8 @@ export function WiiMenu({ subscribe, onLaunch, hostPlayer }: WiiMenuProps) {
           );
         })}
       </div>
-      <Cursor ref={cursorRef} />
-      {toast && <div className="wii-toast">{toast}</div>}
+      {!spectating && <Cursor ref={cursorRef} />}
+      {displayToast && <div className="wii-toast">{displayToast}</div>}
     </div>
   );
 }

@@ -17,5 +17,5 @@ export const CHANNELS: Channel[] = [
   { id: "photo", title: "Photo Channel", accent: "#f4a300", status: "soon" },
   { id: "weather", title: "Forecast Channel", accent: "#3bb5d0", status: "soon" },
   { id: "news", title: "News Channel", accent: "#c43bb0", status: "soon" },
-  { id: "settings", title: "Wii Options", accent: "#888888", status: "soon" },
+  { id: "players", title: "Player Manager", accent: "#7088a3", status: "ready" },
 ];

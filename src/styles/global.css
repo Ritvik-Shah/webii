@@ -1010,6 +1010,45 @@ a {
   color: #7a1f1f;
 }
 
+.player-manager-root {
+  min-height: 100dvh;
+  padding: 7vh 7vw;
+  background: linear-gradient(160deg, #e8f1fb, #b8d3ee);
+  color: var(--wii-ink);
+}
+
+.player-manager-header {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 8vh;
+  text-align: center;
+}
+
+.player-manager-title { font-size: clamp(2rem, 5vw, 3.5rem); font-weight: 800; }
+.player-manager-subtitle { font-size: clamp(1rem, 2vw, 1.35rem); color: var(--wii-ink-soft); }
+
+.player-manager-seats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px; }
+
+.player-manager-card {
+  display: flex;
+  min-height: 160px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: 3px solid #adc3da;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.63);
+  color: var(--wii-ink-soft);
+  font-size: clamp(0.9rem, 1.8vw, 1.2rem);
+  font-weight: 700;
+}
+.player-manager-card.is-connected { border-color: #4d87bd; background: #f7fbff; color: var(--wii-ink); }
+.player-manager-card.is-selected { border-color: #c43b3b; background: #ffe3e3; color: #7a1f1f; }
+.player-manager-number { font-size: clamp(1.2rem, 2.4vw, 1.7rem); }
+.player-manager-hint { margin-top: 8vh; text-align: center; font-weight: 700; color: var(--wii-ink-soft); }
+
 /* Host-only in-game recovery control. The game remains visible behind it so
  * a dropped controller can be cleared without throwing away the session. */
 .player-manager {

@@ -66,10 +66,12 @@ export const SWING_MAX_ACCEL = 26;
 // the bowler, which swings the whole line. Between them they cover the lane
 // coarsely and the pocket finely.
 
-/** How far left/right of lane centre the bowler may stand. */
-export const STANCE_LIMIT = 0.36;
+/** How far left/right of lane centre the bowler may stand. The strongest
+ * lines are played from around 0.30, so the limit sits outside that rather
+ * than pinning the best strategy to the edge of the range. */
+export const STANCE_LIMIT = 0.42;
 /** Lane-metres a single Left/Right tap moves the stance. */
-export const STANCE_STEP = 0.015;
+export const STANCE_STEP = 0.008;
 /** Lane-metres per second while Left/Right is held down. */
 export const STANCE_RATE = 0.16;
 
@@ -77,8 +79,12 @@ export const STANCE_RATE = 0.16;
  * gutter from the middle of the lane, exactly like the real game -- rotating
  * is a deliberate mode, so it gets real authority. */
 export const AIM_LIMIT = 0.04;
-/** Radians a single Left/Right tap rotates the bowler (~3.6 cm at the pins). */
-export const AIM_STEP = 0.002;
+/** Radians a single Left/Right tap rotates the bowler. Sized so one tap
+ * moves the line about 1 cm at the pins: the window that actually carries a
+ * rack is only a few centimetres wide, and a tap used to move further than
+ * that -- so a player could step straight over the strike line without ever
+ * being able to land on it. */
+export const AIM_STEP = 0.0006;
 /** Radians per second while Left/Right is held down. */
 export const AIM_RATE = 0.02;
 

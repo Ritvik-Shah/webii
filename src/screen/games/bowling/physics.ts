@@ -69,21 +69,32 @@ const DOWN_TILT = Math.PI / 2 - 0.2;
 const SETTLED_TILT_EPS = 0.02;
 const SETTLED_SPEED = 0.06;
 
-// Ball 7.26 kg against pin 1.53 kg. For an impulse along the contact normal
-// the pin leaves with 2*m_ball/(m_ball+m_pin) = 1.65 of the closing speed and
-// the ball loses 2*m_pin/(m_ball+m_pin) = 0.35 of it. Both are damped a
-// little for the energy a real collision loses.
+// Collision response, derived from the real masses rather than hand-picked,
+// so the ball's share and the pin's share of every impulse always agree with
+// each other. Picking them independently is how they drifted apart before:
+// the pin was being kicked as if the collision were nearly elastic while the
+// ball was barely pushed at all, which is not a consistent collision.
 //
-// BALL_DEFLECT is the one deliberate departure. It was 0.11, which made the
-// ball far too heavy to be pushed around -- it ploughed through a rack in a
-// dead straight line. The physically correct 0.35 knocks it so far off line
-// that a straight ball can't carry a rack at all, which matters here because
-// this game has no hook to steer back with. 0.16 is the compromise: the ball
-// is visibly shoved off its path (~20 cm through the pocket), a fast ball is
-// shoved much less (~9 cm) since the pins are cleared before they can push
-// back, and a well-aimed shot still strikes.
-const PIN_KICK = 1.55;
-const BALL_DEFLECT = 0.16;
+// For an impulse along the contact normal between masses A and B with
+// restitution e, each body's velocity change along that normal is
+// (1 + e) * (other mass / total mass) * closing speed.
+const BALL_MASS = 7.26; // 16 lb
+const PIN_MASS = 1.53; // 3 lb 6 oz
+/** Bowling ball against a wooden pin. On the lively side of the real
+ * range, which is the one difficulty knob taken here -- it makes the pins
+ * carry a little better without touching the mass relationship above. */
+const BALL_PIN_RESTITUTION = 0.85;
+/** Wood on wood, in the chain reaction across the rack. */
+const PIN_PIN_RESTITUTION = 0.85;
+
+const TOTAL_MASS = BALL_MASS + PIN_MASS;
+/** Fraction of the closing speed the pin gains. */
+const PIN_KICK = (1 + BALL_PIN_RESTITUTION) * (BALL_MASS / TOTAL_MASS);
+/** Fraction the ball loses -- the reaction to the same impulse. */
+const BALL_DEFLECT = (1 + BALL_PIN_RESTITUTION) * (PIN_MASS / TOTAL_MASS);
+/** Equal masses, so each pin takes half the exchange. */
+const PIN_TRANSFER = (1 + PIN_PIN_RESTITUTION) / 2;
+
 /** Pins tip faster the harder they are moving. */
 const TIP_RATE = 3.4;
 const PIN_FRICTION = 1.9;
@@ -284,9 +295,7 @@ function collidePins(sim: Simulation) {
       b.x += nx * overlap;
       b.z += nz * overlap;
 
-      // Equal masses: swap the closing component, damped for the energy a
-      // real wooden pin loses on impact.
-      const transfer = closing * 0.86;
+      const transfer = closing * PIN_TRANSFER;
       a.vx -= nx * transfer;
       a.vz -= nz * transfer;
       b.vx += nx * transfer;

@@ -581,3 +581,72 @@ export function drawVersusWorld(
 
       ctx.restore();
 }
+
+/** The solo campaign as drawable state -- what a spectator screen is sent. */
+export interface CampaignWorld {
+  walls: WallRect[];
+  player: PlayerState;
+  enemies: EnemyState[];
+  shells: ShellState[];
+  mines: MineState[];
+  explosions: ExplosionState[];
+  /** Where the player's reticle is, in arena coordinates. */
+  aim: { x: number; y: number };
+  /** Hides the reticle outside of play, e.g. on the level-clear card. */
+  playing: boolean;
+}
+
+/** Draws a campaign frame. Pure: the host and any spectator mirror run this
+ * over the same world and get the same picture. */
+export function drawCampaignWorld(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  world: CampaignWorld,
+) {
+  const scale = Math.min(width / ARENA_W, height / ARENA_H);
+  ctx.clearRect(0, 0, width, height);
+  ctx.fillStyle = "#161c11";
+  ctx.fillRect(0, 0, width, height);
+  ctx.save();
+  ctx.translate((width - ARENA_W * scale) / 2, (height - ARENA_H * scale) / 2);
+  ctx.scale(scale, scale);
+
+  ctx.fillStyle = "#28331f";
+  ctx.fillRect(0, 0, ARENA_W, ARENA_H);
+
+  for (const w of world.walls) {
+    ctx.fillStyle = "#7d8177";
+    ctx.fillRect(w.x, w.y, w.w, w.h);
+    ctx.strokeStyle = "#454940";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(w.x, w.y, w.w, w.h);
+  }
+
+  for (const mine of world.mines) drawMine(ctx, mine);
+
+  for (const enemy of world.enemies) {
+    if (enemy.alive) drawTank(ctx, enemy.x, enemy.y, enemy.angle, enemy.angle, "#c1503f", "#7a2f24");
+  }
+
+  const { player, aim } = world;
+  if (player.alive) {
+    const blinking = player.invulnTimer > 0 && Math.floor(player.invulnTimer * 10) % 2 === 0;
+    if (!blinking) {
+      const turretAngle = Math.atan2(aim.y - player.y, aim.x - player.x);
+      drawTank(ctx, player.x, player.y, player.angle, turretAngle, "#4f8fd6", "#2a4f7a");
+    }
+  }
+
+  for (const shell of world.shells) {
+    drawShell(ctx, shell, shell.owner === "player" ? SHELL_COLOR_PLAYER : SHELL_COLOR_ENEMY);
+  }
+  for (const ex of world.explosions) drawExplosion(ctx, ex);
+  if (world.playing) drawReticle(ctx, aim.x, aim.y);
+
+  ctx.strokeStyle = "#12160f";
+  ctx.lineWidth = 6;
+  ctx.strokeRect(3, 3, ARENA_W - 6, ARENA_H - 6);
+
+  ctx.restore();
+}

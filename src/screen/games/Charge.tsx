@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import "./charge.css";
+import { SNAPSHOT_HZ } from "../../../shared/protocol";
 import type { GameProps } from "./types";
 import { TurnRounds, type RoundProps } from "./TurnRounds";
 import { useGameCanvas } from "./useGameCanvas";
@@ -547,11 +548,67 @@ interface BannerState {
   text: string;
 }
 
+
+/** Everything a spectator screen needs to draw a run. */
+export interface ChargeSnapshot {
+  engine: EngineState;
+  score: number;
+  streak: number;
+  timeLeft: number;
+}
+
+/**
+ * Draws a frame of the run and returns where the cow ended up, so the caller
+ * can place the rider Mii (a DOM element) on top of it. Pure over the engine
+ * state, so the host and a spectator mirror draw the same thing.
+ */
+export function drawChargeWorld(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  engine: EngineState,
+): { x: number; y: number } {
+    drawSkyAndGround(ctx, width, height);
+
+    const baseP = Math.floor((engine.progress - 6) / POST_SPACING) * POST_SPACING;
+    const count = Math.ceil((VISIBLE_RANGE + 6) / POST_SPACING);
+    for (let i = count; i >= 0; i--) {
+      const p = baseP + i * POST_SPACING;
+      const distance = p - engine.progress;
+      if (distance < -6 || distance > VISIBLE_RANGE) continue;
+      const proj = projectPoint(distance, width, height);
+      drawGroundRung(ctx, width, proj);
+      drawFencePost(ctx, width / 2 - proj.laneHalfWidth - 4 * proj.scale, proj);
+      drawFencePost(ctx, width / 2 + proj.laneHalfWidth + 4 * proj.scale, proj);
+    }
+
+    const obstacleSizeScale = worldScale(width, height);
+    for (let i = engine.obstacles.length - 1; i >= 0; i--) {
+      const ob = engine.obstacles[i];
+      const distance = ob.progress - engine.progress;
+      if (distance > VISIBLE_RANGE) continue;
+      const proj = projectPoint(distance, width, height);
+      if (ob.kind === "hurdle") {
+        drawHurdle(ctx, width / 2, proj, ob.status, obstacleSizeScale);
+      } else {
+        const screenX = width / 2 + ob.x * proj.laneHalfWidth;
+        drawScarecrow(ctx, screenX, proj, ob.sub, ob.status, obstacleSizeScale);
+      }
+    }
+
+  const jumpFrac = engine.jumpTimer > 0 ? 1 - engine.jumpTimer / JUMP_DURATION_S : 0;
+  const stumbleFrac = engine.stumbleTimer > 0 ? engine.stumbleTimer / STUMBLE_DURATION_S : 0;
+  return drawCow(ctx, width, height, engine.steer, jumpFrac, stumbleFrac);
+}
+
 /**
  * One player's timed run. Rendered by TurnRounds, which remounts it per
  * player and collects the score when the clock runs out.
  */
-function ChargeRun({ subscribe, send, mii, onFinish }: RoundProps) {
+function ChargeRun({ subscribe, send, mii, onFinish, publish }: RoundProps) {
+  const publishRef = useRef(publish);
+  publishRef.current = publish;
+  const lastPublishRef = useRef(0);
   const engineRef = useRef<EngineState>(createEngineState());
   const riderRef = useRef<HTMLDivElement | null>(null);
 
@@ -685,38 +742,7 @@ function ChargeRun({ subscribe, send, mii, onFinish }: RoundProps) {
       }
     }
 
-    // --- render ---
-    drawSkyAndGround(ctx, width, height);
-
-    const baseP = Math.floor((st.progress - 6) / POST_SPACING) * POST_SPACING;
-    const count = Math.ceil((VISIBLE_RANGE + 6) / POST_SPACING);
-    for (let i = count; i >= 0; i--) {
-      const p = baseP + i * POST_SPACING;
-      const distance = p - st.progress;
-      if (distance < -6 || distance > VISIBLE_RANGE) continue;
-      const proj = projectPoint(distance, width, height);
-      drawGroundRung(ctx, width, proj);
-      drawFencePost(ctx, width / 2 - proj.laneHalfWidth - 4 * proj.scale, proj);
-      drawFencePost(ctx, width / 2 + proj.laneHalfWidth + 4 * proj.scale, proj);
-    }
-
-    const obstacleSizeScale = worldScale(width, height);
-    for (let i = st.obstacles.length - 1; i >= 0; i--) {
-      const ob = st.obstacles[i];
-      const distance = ob.progress - st.progress;
-      if (distance > VISIBLE_RANGE) continue;
-      const proj = projectPoint(distance, width, height);
-      if (ob.kind === "hurdle") {
-        drawHurdle(ctx, width / 2, proj, ob.status, obstacleSizeScale);
-      } else {
-        const screenX = width / 2 + ob.x * proj.laneHalfWidth;
-        drawScarecrow(ctx, screenX, proj, ob.sub, ob.status, obstacleSizeScale);
-      }
-    }
-
-    const jumpFrac = st.jumpTimer > 0 ? 1 - st.jumpTimer / JUMP_DURATION_S : 0;
-    const stumbleFrac = st.stumbleTimer > 0 ? st.stumbleTimer / STUMBLE_DURATION_S : 0;
-    const cow = drawCow(ctx, width, height, st.steer, jumpFrac, stumbleFrac);
+    const cow = drawChargeWorld(ctx, width, height, st);
 
     const rider = riderRef.current;
     if (rider) {
@@ -725,6 +751,13 @@ function ChargeRun({ subscribe, send, mii, onFinish }: RoundProps) {
       // as high as the cow body during a jump, visibly desyncing the two.
       rider.style.left = `${cow.x}px`;
       rider.style.top = `${cow.y}px`;
+    }
+
+    // Mirror the run to any spectator screens.
+    const nowMs = performance.now();
+    if (nowMs - lastPublishRef.current >= 1000 / SNAPSHOT_HZ) {
+      lastPublishRef.current = nowMs;
+      publishRef.current({ engine: st, score: scoreRef.current, streak, timeLeft } satisfies ChargeSnapshot);
     }
   };
 

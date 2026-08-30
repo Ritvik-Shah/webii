@@ -93,6 +93,7 @@ function bestSpawn(tanks: Tank[], self: Tank): { x: number; y: number } {
 
 /** What a spectator screen is sent each frame. */
 export interface TanksVersusSnapshot {
+  kind: "versus";
   world: VersusWorld;
   hud: VersusHudState;
   players: PlayerInfo[];
@@ -372,6 +373,7 @@ export function TanksVersus({ players, subscribe, send, onExit, publish }: Tanks
           world,
           hud: { scores: scoresRef.current, timeLeft: timeLeftRef.current, phase: phaseRef.current, countdown: countdownRef.current, matchSeconds: MATCH_SECONDS },
           players,
+          kind: "versus",
         } satisfies TanksVersusSnapshot);
       }
     },

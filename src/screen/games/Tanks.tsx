@@ -7,6 +7,7 @@ import { useGameCanvas } from "./useGameCanvas";
 import { usePointerPosition } from "../usePointerGrid";
 import { MiiAvatar } from "../mii/MiiAvatar";
 import { playButtonBlip, playLaunchChime } from "../../lib/sound";
+import { SNAPSHOT_HZ } from "../../../shared/protocol";
 import {
   ALIGN_EPS,
   ARENA_H,
@@ -40,13 +41,8 @@ import {
   TANK_SPEED,
   VICTORY_DELAY,
   WallRect,
-  drawExplosion,
-  drawMine,
-  drawReticle,
-  drawShell,
-  SHELL_COLOR_PLAYER,
-  SHELL_COLOR_ENEMY,
-  drawTank,
+  type CampaignWorld,
+  drawCampaignWorld,
   moveWithCollision,
   pickPatrolTarget,
   playExplosion,
@@ -54,6 +50,15 @@ import {
   segmentClear,
   updateShell
 } from "./tanksCore";
+
+/** Render state for the solo campaign's spectator mirror. */
+export interface CampaignSnapshot {
+  kind: "campaign";
+  world: CampaignWorld;
+  lives: number;
+  level: number;
+  phase: Phase;
+}
 
 // ---------------------------------------------------------------------------
 // Tanks! solo campaign -- fight through the levels in tanksCore's LEVELS.
@@ -65,7 +70,12 @@ import {
 
 // --- Component ----------------------------------------------------------
 
-function TanksCampaign({ subscribe, onExit, mii }: { subscribe: GameProps["subscribe"]; onExit: () => void; mii: Mii }) {
+function TanksCampaign({ subscribe, onExit, mii, publish }: {
+  subscribe: GameProps["subscribe"];
+  onExit: () => void;
+  mii: Mii;
+  publish: GameProps["publish"];
+}) {
   const [phase, setPhaseState] = useState<Phase>("playing");
   const [lives, setLivesState] = useState(START_LIVES);
   const [levelIndex, setLevelIndexState] = useState(0);
@@ -105,6 +115,9 @@ function TanksCampaign({ subscribe, onExit, mii }: { subscribe: GameProps["subsc
 
   const bannerTimerRef = useRef(0);
   const exitCalledRef = useRef(false);
+  const publishRef = useRef(publish);
+  publishRef.current = publish;
+  const lastPublishRef = useRef(0);
 
   const heldKeysRef = useRef<Set<"UP" | "DOWN" | "LEFT" | "RIGHT">>(new Set());
   const lastFireAtRef = useRef(0);
@@ -397,13 +410,6 @@ function TanksCampaign({ subscribe, onExit, mii }: { subscribe: GameProps["subsc
   }
 
   function draw(ctx: CanvasRenderingContext2D, dt: number, width: number, height: number) {
-    const scale = Math.min(width / ARENA_W, height / ARENA_H);
-    const offsetX = (width - ARENA_W * scale) / 2;
-    const offsetY = (height - ARENA_H * scale) / 2;
-
-    ctx.fillStyle = "#0a0e0a";
-    ctx.fillRect(0, 0, width, height);
-
     if (phaseRef.current === "playing") {
       simulate(dt);
     } else {
@@ -421,49 +427,30 @@ function TanksCampaign({ subscribe, onExit, mii }: { subscribe: GameProps["subsc
       }
     }
 
-    ctx.save();
-    ctx.translate(offsetX, offsetY);
-    ctx.scale(scale, scale);
+    const world: CampaignWorld = {
+      walls: wallsRef.current,
+      player: playerRef.current,
+      enemies: enemiesRef.current,
+      shells: shellsRef.current,
+      mines: minesRef.current,
+      explosions: explosionsRef.current,
+      aim: reticleArenaPos(),
+      playing: phaseRef.current === "playing",
+    };
+    drawCampaignWorld(ctx, width, height, world);
 
-    // arena floor
-    ctx.fillStyle = "#28331f";
-    ctx.fillRect(0, 0, ARENA_W, ARENA_H);
-
-    // walls
-    for (const w of wallsRef.current) {
-      ctx.fillStyle = "#7d8177";
-      ctx.fillRect(w.x, w.y, w.w, w.h);
-      ctx.strokeStyle = "#454940";
-      ctx.lineWidth = 2;
-      ctx.strokeRect(w.x, w.y, w.w, w.h);
+    // Mirror the campaign to any spectator screens.
+    const nowMs = performance.now();
+    if (nowMs - lastPublishRef.current >= 1000 / SNAPSHOT_HZ) {
+      lastPublishRef.current = nowMs;
+      publishRef.current({
+        kind: "campaign",
+        world,
+        lives: livesRef.current,
+        level: levelIndexRef.current,
+        phase: phaseRef.current,
+      } satisfies CampaignSnapshot);
     }
-
-    for (const mine of minesRef.current) drawMine(ctx, mine);
-
-    for (const enemy of enemiesRef.current) {
-      if (enemy.alive) drawTank(ctx, enemy.x, enemy.y, enemy.angle, enemy.angle, "#c1503f", "#7a2f24");
-    }
-
-    const player = playerRef.current;
-    const target = reticleArenaPos();
-    if (player.alive) {
-      const blinking = player.invulnTimer > 0 && Math.floor(player.invulnTimer * 10) % 2 === 0;
-      if (!blinking) {
-        const turretAngle = Math.atan2(target.y - player.y, target.x - player.x);
-        drawTank(ctx, player.x, player.y, player.angle, turretAngle, "#4f8fd6", "#2a4f7a");
-      }
-    }
-
-    for (const shell of shellsRef.current) drawShell(ctx, shell, shell.owner === "player" ? SHELL_COLOR_PLAYER : SHELL_COLOR_ENEMY);
-    for (const ex of explosionsRef.current) drawExplosion(ctx, ex);
-
-    if (phaseRef.current === "playing") drawReticle(ctx, target.x, target.y);
-
-    ctx.strokeStyle = "#12160f";
-    ctx.lineWidth = 6;
-    ctx.strokeRect(3, 3, ARENA_W - 6, ARENA_H - 6);
-
-    ctx.restore();
   }
 
   const canvasRef = useGameCanvas(draw);
@@ -522,5 +509,5 @@ export function Tanks({ send, subscribe, onExit, players, publish }: GameProps) 
   if (players.length > 1) {
     return <TanksVersus players={players} subscribe={subscribe} send={send} onExit={onExit} publish={publish} />;
   }
-  return <TanksCampaign subscribe={subscribe} onExit={onExit} mii={players[0].mii} />;
+  return <TanksCampaign subscribe={subscribe} onExit={onExit} mii={players[0].mii} publish={publish} />;
 }

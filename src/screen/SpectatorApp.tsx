@@ -5,10 +5,14 @@ import { isPresence, isSnapshot } from "../../shared/protocol";
 import { useRoomSocket } from "../lib/useRoomSocket";
 import { TanksVersusSpectator } from "./games/TanksVersusSpectator";
 import type { TanksVersusSnapshot } from "./games/TanksVersus";
+import { TanksCampaignSpectator } from "./games/TanksCampaignSpectator";
+import type { CampaignSnapshot } from "./games/Tanks";
 import type { BowlingSnapshot } from "./games/bowling/Bowling";
 import type { TurnRoundsSnapshot } from "./games/TurnRounds";
 import { TurnRoundsOverlay } from "./games/TurnRoundsOverlay";
 import { RangeSpectator } from "./games/RangeSpectator";
+import { ChargeSpectator } from "./games/ChargeSpectator";
+import type { ChargeSnapshot } from "./games/Charge";
 import type { RangeSnapshot } from "./games/TargetPractice";
 
 // Bowling drags in three.js, so a spectator only downloads it if the room is
@@ -56,9 +60,9 @@ export function SpectatorApp() {
   }
 
   if (snapshot?.view === "game:tanks") {
-    const state = snapshot.state as TanksVersusSnapshot;
-    // Solo Tanks is the campaign, which doesn't publish a world to mirror.
-    if (state?.world) return <TanksVersusSpectator snapshot={state} />;
+    const state = snapshot.state as TanksVersusSnapshot | CampaignSnapshot;
+    if (state?.kind === "campaign") return <TanksCampaignSpectator snapshot={state} />;
+    if (state?.kind === "versus") return <TanksVersusSpectator snapshot={state} />;
   }
 
   // The take-turns games publish a common wrapper snapshot: between rounds
@@ -69,6 +73,14 @@ export function SpectatorApp() {
     if (turns.stage !== "playing") return <TurnRoundsOverlay snapshot={turns} spectating />;
     if (snapshot?.view === "game:target" && turns.round) {
       return <RangeSpectator snapshot={turns.round as RangeSnapshot} />;
+    }
+    if (snapshot?.view === "game:charge" && turns.round) {
+      return (
+        <ChargeSpectator
+          snapshot={turns.round as ChargeSnapshot}
+          mii={turns.players[turns.activeIndex].mii}
+        />
+      );
     }
     // A round is running for a game whose in-play view doesn't mirror yet.
     return (

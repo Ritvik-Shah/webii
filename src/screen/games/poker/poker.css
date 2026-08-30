@@ -1,0 +1,200 @@
+/* The poker table: community cards, the pot and every seat's chips. Hole
+   cards live on the phones and only appear here at a showdown. */
+
+.poker-root {
+  width: 100%;
+  height: 100dvh;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.2rem;
+  padding: 1.4rem;
+  background: radial-gradient(circle at 50% 34%, #1d5b46, #0a2018);
+  color: #f2fff8;
+  font-family: "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
+}
+
+.poker-board {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.poker-community {
+  display: flex;
+  gap: 0.5rem;
+  min-height: clamp(6rem, 12vw, 9rem);
+  align-items: center;
+}
+
+.poker-card {
+  width: clamp(3.6rem, 6.4vw, 5.4rem);
+  height: clamp(5.2rem, 9.2vw, 7.6rem);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.1rem;
+  border-radius: 10px;
+  background: #fdfdf7;
+  color: #22262e;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45);
+}
+
+.poker-card.is-red {
+  color: #c0392b;
+}
+
+.poker-rank {
+  font-size: clamp(1.3rem, 2.6vw, 2rem);
+  font-weight: 800;
+  line-height: 1;
+}
+
+.poker-suit {
+  font-size: clamp(1.1rem, 2.2vw, 1.7rem);
+  line-height: 1;
+}
+
+.poker-preflop {
+  opacity: 0.55;
+  font-size: clamp(0.85rem, 1.6vw, 1.1rem);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.poker-pot {
+  padding: 0.25rem 1.2rem;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.35);
+  font-weight: 800;
+  font-size: clamp(0.85rem, 1.6vw, 1.15rem);
+}
+
+.poker-seats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10.5rem, 1fr));
+  gap: 0.5rem;
+  max-width: min(66rem, 94vw);
+}
+
+.poker-seat {
+  padding: 0.45rem 0.7rem;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.32);
+  border: 2px solid transparent;
+}
+
+.poker-seat.is-up {
+  border-color: #ffd45e;
+  background: rgba(255, 212, 94, 0.16);
+}
+
+.poker-seat.is-folded {
+  opacity: 0.42;
+}
+
+.poker-seat.is-winner {
+  border-color: #6ee89a;
+  background: rgba(110, 232, 154, 0.18);
+}
+
+.poker-seat-head {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.poker-seat-name {
+  flex: 1;
+  font-weight: 700;
+  font-size: clamp(0.72rem, 1.2vw, 0.9rem);
+}
+
+.poker-seat-chips {
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  font-size: clamp(0.75rem, 1.3vw, 0.95rem);
+}
+
+.poker-seat-state {
+  font-size: clamp(0.62rem, 1vw, 0.78rem);
+  opacity: 0.75;
+  min-height: 1em;
+}
+
+.poker-seat-hole {
+  display: flex;
+  gap: 0.35rem;
+  align-items: baseline;
+  margin-top: 0.2rem;
+  font-weight: 800;
+  font-size: clamp(0.72rem, 1.2vw, 0.9rem);
+  background: #fdfdf7;
+  color: #22262e;
+  border-radius: 7px;
+  padding: 0.15rem 0.4rem;
+}
+
+.poker-seat-hole .is-red {
+  color: #c0392b;
+}
+
+.poker-seat-hand {
+  margin-left: auto;
+  font-weight: 600;
+  font-size: 0.68rem;
+  opacity: 0.7;
+}
+
+.poker-log {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  text-align: center;
+  font-size: clamp(0.7rem, 1.2vw, 0.88rem);
+  opacity: 0.8;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.poker-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(5, 16, 12, 0.74);
+}
+
+.poker-final {
+  padding: 1.8rem 2.4rem 1.4rem;
+  border-radius: 18px;
+  text-align: center;
+  background: rgba(246, 255, 250, 0.96);
+  color: #10301f;
+  border: 3px solid #fff;
+}
+
+.poker-final h2 {
+  font-size: clamp(1.3rem, 3vw, 2rem);
+}
+
+.poker-hint,
+.poker-hint-bar {
+  font-size: clamp(0.7rem, 1.2vw, 0.9rem);
+  opacity: 0.65;
+}
+
+.poker-hint-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0.6rem;
+  text-align: center;
+}

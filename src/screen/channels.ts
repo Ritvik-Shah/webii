@@ -14,7 +14,7 @@ export const CHANNELS: Channel[] = [
   { id: "nes-upload", title: "NES Channel", accent: "#6b4fd6", status: "ready" },
   { id: "nds-channel", title: "DS Channel", accent: "#c93bc9", status: "ready" },
   { id: "uno", title: "Uno", accent: "#d3323a", status: "ready" },
-  { id: "photo", title: "Photo Channel", accent: "#f4a300", status: "soon" },
+  { id: "poker", title: "Poker", accent: "#1d5b46", status: "ready" },
   { id: "weather", title: "Forecast Channel", accent: "#3bb5d0", status: "soon" },
   { id: "news", title: "News Channel", accent: "#c43bb0", status: "soon" },
   { id: "players", title: "Player Manager", accent: "#7088a3", status: "ready" },

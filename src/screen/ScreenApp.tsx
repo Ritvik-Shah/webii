@@ -86,6 +86,7 @@ export function ScreenApp() {
   });
 
   const players = presence?.players ?? [];
+  const spectators = presence?.spectators ?? 0;
   // The lowest-numbered connected player drives shared screens (the lobby,
   // the Wii Menu) so four remotes don't fight over one cursor.
   const hostPlayer = players[0];
@@ -109,6 +110,28 @@ export function ScreenApp() {
   }, []);
 
   const subscribe = busRef.current.subscribe;
+
+  // Snapshots are what spectator screens draw from. Skipped entirely when
+  // nobody is watching, so a normal session pays nothing for the feature.
+  const spectatorsRef = useRef(spectators);
+  spectatorsRef.current = spectators;
+  const publishAs = useCallback(
+    (view: string) => (state: unknown) => {
+      if (spectatorsRef.current > 0) send({ type: "snapshot", view, state });
+    },
+    [send],
+  );
+
+  // The non-game screens don't need mirroring frame by frame -- a spectator
+  // only needs to know what the host is busy with.
+  useEffect(() => {
+    if (spectators === 0 || view.kind === "game") return;
+    const publish = publishAs(view.kind);
+    const tick = () => publish({ players, roomCode });
+    tick();
+    const timer = window.setInterval(tick, 1000);
+    return () => window.clearInterval(timer);
+  }, [spectators, view, players, roomCode, publishAs]);
 
   // In the lobby, the host's A press starts the session. Kept here rather
   // than inside PairingScreen so the lobby stays a pure display component.
@@ -161,6 +184,8 @@ export function ScreenApp() {
               subscribe={subscribe}
               onExit={() => setView({ kind: "menu" })}
               players={view.players}
+              publish={publishAs(`game:${view.channelId}`)}
+              spectators={spectators}
             />
           </Suspense>
         );

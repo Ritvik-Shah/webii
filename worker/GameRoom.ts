@@ -14,6 +14,11 @@ interface Env {
 /**
  * Relay between one screen and up to MAX_PLAYERS phones.
  *
+ * There are three kinds of socket: the one host screen that runs the games,
+ * the phones, and any number of read-only spectator screens that mirror the
+ * host. Snapshots from the host go only to spectators; everything else the
+ * host sends goes to the phones.
+ *
  * The room owns player numbering: each controller socket is tagged with its
  * slot, and every frame it sends is stamped with that number on the way to
  * the screen -- so the screen can always tell who pressed what without
@@ -31,8 +36,8 @@ export class GameRoom extends DurableObject<Env> {
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
     const role = url.searchParams.get("role");
-    if (role !== "screen" && role !== "controller") {
-      return new Response("role must be 'screen' or 'controller'", { status: 400 });
+    if (role !== "screen" && role !== "controller" && role !== "spectator") {
+      return new Response("role must be 'screen', 'controller' or 'spectator'", { status: 400 });
     }
     if (request.headers.get("Upgrade") !== "websocket") {
       return new Response("expected websocket upgrade", { status: 426 });
@@ -43,6 +48,14 @@ export class GameRoom extends DurableObject<Env> {
 
     const pair = new WebSocketPair();
     const [client, server] = Object.values(pair);
+
+    if (role === "spectator") {
+      // Any number of read-only mirrors; they send nothing and simply
+      // receive the host's snapshots.
+      this.ctx.acceptWebSocket(server, ["spectator"]);
+      this.broadcastPresence();
+      return new Response(null, { status: 101, webSocket: client });
+    }
 
     if (role === "screen") {
       // Still exactly one screen; a rejoin replaces the old one.
@@ -82,6 +95,9 @@ export class GameRoom extends DurableObject<Env> {
     const role = this.roleOf(ws);
     if (!role) return;
 
+    // Spectators are strictly read-only; anything they send is ignored.
+    if (role === "spectator") return;
+
     if (role === "controller") {
       // Stamp the sender's player number before handing it to the screen.
       const player = this.playerOf(ws);
@@ -97,17 +113,31 @@ export class GameRoom extends DurableObject<Env> {
       return;
     }
 
-    // Screen -> controllers, optionally addressed to a single player.
-    let to = 0;
+    // Host screen -> either the spectator mirrors (snapshots) or the phones
+    // (everything else, optionally addressed to a single player).
+    let parsed: { to?: number; type?: string };
     try {
-      const parsed = JSON.parse(message) as { to?: number };
-      if (typeof parsed.to === "number") to = parsed.to;
+      parsed = JSON.parse(message) as { to?: number; type?: string };
     } catch {
       return;
     }
+
+    if (parsed.type === "snapshot") {
+      for (const viewer of this.ctx.getWebSockets("spectator")) {
+        if (!isOpen(viewer)) continue;
+        try {
+          viewer.send(message);
+        } catch {
+          // Viewer vanished mid-send; its close handler will tidy up.
+        }
+      }
+      return;
+    }
+
+    const to = typeof parsed.to === "number" ? parsed.to : 0;
     const targets = to > 0 ? this.ctx.getWebSockets(playerTag(to)) : this.ctx.getWebSockets("controller");
     for (const peer of targets) {
-      peer.send(message);
+      if (isOpen(peer)) peer.send(message);
     }
   }
 
@@ -153,6 +183,7 @@ export class GameRoom extends DurableObject<Env> {
     const tags = this.ctx.getTags(ws);
     if (tags.includes("screen")) return "screen";
     if (tags.includes("controller")) return "controller";
+    if (tags.includes("spectator")) return "spectator";
     return null;
   }
 
@@ -171,10 +202,15 @@ export class GameRoom extends DurableObject<Env> {
       type: "presence",
       screenConnected: this.ctx.getWebSockets("screen").some((ws) => ws !== leaving && isOpen(ws)),
       players: this.connectedPlayers(leaving),
+      spectators: this.ctx.getWebSockets("spectator").filter((ws) => ws !== leaving && isOpen(ws)).length,
       roomCode: this.roomCode,
     };
     const payload = JSON.stringify(presence);
-    for (const ws of [...this.ctx.getWebSockets("screen"), ...this.ctx.getWebSockets("controller")]) {
+    for (const ws of [
+      ...this.ctx.getWebSockets("screen"),
+      ...this.ctx.getWebSockets("controller"),
+      ...this.ctx.getWebSockets("spectator"),
+    ]) {
       if (ws === leaving || !isOpen(ws)) continue;
       try {
         ws.send(payload);

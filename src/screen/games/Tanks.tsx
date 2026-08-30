@@ -518,9 +518,9 @@ function TanksCampaign({ subscribe, onExit, mii }: { subscribe: GameProps["subsc
  * the level-clearing campaign it has always been; with anyone else, it's a
  * free-for-all deathmatch where everyone drives at once.
  */
-export function Tanks({ send, subscribe, onExit, players }: GameProps) {
+export function Tanks({ send, subscribe, onExit, players, publish }: GameProps) {
   if (players.length > 1) {
-    return <TanksVersus players={players} subscribe={subscribe} send={send} onExit={onExit} />;
+    return <TanksVersus players={players} subscribe={subscribe} send={send} onExit={onExit} publish={publish} />;
   }
   return <TanksCampaign subscribe={subscribe} onExit={onExit} mii={players[0].mii} />;
 }

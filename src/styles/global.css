@@ -950,3 +950,45 @@ a {
   opacity: 0.8;
   line-height: 1.5;
 }
+
+/* =========================================================================
+   Spectator screens (/watch/CODE) — the idle card shown before, between and
+   around games. The games themselves supply their own full-screen mirrors.
+   ========================================================================= */
+
+.spectator-idle {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 24px;
+  text-align: center;
+  background: linear-gradient(180deg, var(--wii-blue-1), var(--wii-blue-2));
+  color: var(--wii-ink);
+}
+
+.spectator-title {
+  font-size: clamp(2rem, 6vw, 3.4rem);
+  font-weight: 800;
+}
+
+.spectator-room {
+  font-size: clamp(0.95rem, 2vw, 1.2rem);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+
+.spectator-status {
+  padding: 8px 18px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.55);
+  font-size: clamp(0.85rem, 1.6vw, 1rem);
+  font-weight: 600;
+}
+
+.spectator-players {
+  font-size: 0.9rem;
+  color: var(--wii-ink-soft);
+}

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import "./bowling.css";
-import type { GameProps } from "../types";
+import { BowlingHud } from "./BowlingHud";
+import { SNAPSHOT_HZ } from "../../../../shared/protocol";
+import type { GameProps, PlayerInfo } from "../types";
 import {
   AIM_LIMIT,
   AIM_RATE,
@@ -27,12 +29,8 @@ import {
 } from "./physics";
 import { createBowlingScene, type BowlingScene, type CameraShot, type SceneView } from "./scene";
 import {
-  FRAME_COUNT,
-  currentScore,
   emptyCard,
-  frameTotals,
   nextTurn,
-  rollGlyph,
   rollsRemainingInFrame,
   type Frame,
 } from "./score";
@@ -71,6 +69,14 @@ const READY_ARM_ANGLE = 0.5;
 const READY_ARM_SPREAD = 0.5;
 
 const ALL_PINS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+
+/** What a spectator screen needs to draw this game. */
+export interface BowlingSnapshot {
+  sim: Simulation;
+  view: SceneView;
+  hud: BowlingHudState;
+  players: PlayerInfo[];
+}
 
 type Phase = "intro" | "aim" | "wind" | "swing" | "roll" | "settle" | "result" | "reset" | "final";
 /** Left/Right either slide the bowler across the approach or rotate them,
@@ -134,7 +140,7 @@ interface GameState {
   bannerShown: string | null;
 }
 
-interface Hud {
+export interface BowlingHudState {
   cards: Frame[][];
   turnIndex: number;
   frameIndex: number;
@@ -146,11 +152,11 @@ interface Hud {
   cameraView: CameraView;
 }
 
-export function Bowling({ send, subscribe, onExit, players }: GameProps) {
+export function Bowling({ send, subscribe, onExit, players, publish }: GameProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<BowlingScene | null>(null);
 
-  const [hud, setHud] = useState<Hud>({
+  const [hud, setHud] = useState<BowlingHudState>({
     cards: players.map(() => emptyCard()),
     turnIndex: 0,
     frameIndex: 0,
@@ -196,6 +202,12 @@ export function Bowling({ send, subscribe, onExit, players }: GameProps) {
   onExitRef.current = onExit;
   const playersRef = useRef(players);
   playersRef.current = players;
+  const publishRef = useRef(publish);
+  publishRef.current = publish;
+  // Mirrored so the render loop can put the HUD into a snapshot without
+  // re-subscribing every time it changes.
+  const hudRef = useRef(hud);
+  hudRef.current = hud;
   const sendRef = useRef(send);
   sendRef.current = send;
 
@@ -208,7 +220,7 @@ export function Bowling({ send, subscribe, onExit, players }: GameProps) {
     game.timer = 0;
   }, []);
 
-  const pushHud = useCallback((game: GameState, extra?: Partial<Hud>) => {
+  const pushHud = useCallback((game: GameState, extra?: Partial<BowlingHudState>) => {
     setHud((prev) => ({
       ...prev,
       cards: game.cards.map((card) => card.map((frame) => [...frame])),
@@ -245,7 +257,7 @@ export function Bowling({ send, subscribe, onExit, players }: GameProps) {
       const clearedRack = standingPinIds(game.sim).length === 0;
 
       let banner: string;
-      let bannerKind: Hud["bannerKind"];
+      let bannerKind: BowlingHudState["bannerKind"];
       if (clearedRack && game.freshRack) {
         banner = "STRIKE!";
         bannerKind = "strike";
@@ -477,6 +489,7 @@ export function Bowling({ send, subscribe, onExit, players }: GameProps) {
 
     let rafId = 0;
     let last = performance.now();
+    let lastPublishedAt = 0;
     let disposed = false;
 
     function frame(now: number) {
@@ -504,6 +517,19 @@ export function Bowling({ send, subscribe, onExit, players }: GameProps) {
         pose: game.pose,
       };
       scene.render(dt, game.sim, view);
+
+      // Feed the spectator mirrors. The renderer already takes exactly
+      // (sim, view), so the snapshot is those two objects plus the HUD --
+      // no separate serialisation format to keep in step.
+      if (now - lastPublishedAt >= 1000 / SNAPSHOT_HZ) {
+        lastPublishedAt = now;
+        publishRef.current({
+          sim: game.sim,
+          view,
+          hud: hudRef.current,
+          players: playersRef.current,
+        } satisfies BowlingSnapshot);
+      }
     }
 
     /** Holding Left or Right slides continuously after a short delay, so a
@@ -768,138 +794,9 @@ export function Bowling({ send, subscribe, onExit, players }: GameProps) {
 
   // -------------------------------------------------------------------------
 
-  const scores = hud.cards.map((card) => currentScore(card));
-  const best = Math.max(...scores);
-  const multiplayer = players.length > 1;
-  const activePlayer = players[hud.turnIndex];
-
   return (
     <div className="bowling-root">
-      <div className="bowling-viewport" ref={containerRef} />
-
-      <div className={`bowling-scorecard${multiplayer ? " is-multi" : ""}`}>
-        {hud.cards.map((card, playerIndex) => {
-          const totals = frameTotals(card);
-          const isUp = playerIndex === hud.turnIndex && hud.phase !== "final";
-          return (
-            <div key={players[playerIndex].player} className={`bowling-card-row${isUp ? " is-up" : ""}`}>
-              {multiplayer && (
-                <div className="bowling-card-who">
-                  <span className="bowling-card-player">P{players[playerIndex].player}</span>
-                  <span className="bowling-card-name">{players[playerIndex].mii.name}</span>
-                </div>
-              )}
-              {card.map((_frame, i) => {
-                const isTenth = i === FRAME_COUNT - 1;
-                const boxes = isTenth ? [0, 1, 2] : [0, 1];
-                const active = isUp && i === hud.frameIndex;
-                return (
-                  <div key={i} className={`bowling-frame${active ? " is-active" : ""}${isTenth ? " is-tenth" : ""}`}>
-                    {playerIndex === 0 && <div className="bowling-frame-number">{i + 1}</div>}
-                    <div className="bowling-frame-rolls">
-                      {boxes.map((rollIndex) => (
-                        <span key={rollIndex} className="bowling-roll">
-                          {rollGlyph(card, i, rollIndex)}
-                        </span>
-                      ))}
-                    </div>
-                    <div className="bowling-frame-total">{totals[i] ?? ""}</div>
-                  </div>
-                );
-              })}
-              <div className="bowling-grand-total">
-                {!multiplayer && <span className="bowling-grand-label">Total</span>}
-                <span className="bowling-grand-value">{scores[playerIndex]}</span>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      <div className="bowling-status">
-        <span className="bowling-status-frame">Frame {hud.frameIndex + 1}</span>
-        <span className="bowling-status-ball">
-          {multiplayer && activePlayer ? `Player ${activePlayer.player} · Ball ${hud.ballNumber}` : `Ball ${hud.ballNumber}`}
-        </span>
-      </div>
-
-      {multiplayer && hud.phase === "intro" && activePlayer && (
-        <div className="bowling-turncall">
-          <span className="bowling-turncall-player">Player {activePlayer.player}</span>
-          <span className="bowling-turncall-name">{activePlayer.mii.name}, you're up</span>
-        </div>
-      )}
-
-      {hud.phase === "aim" && (
-        <div className="bowling-aimpanel">
-          <div className="bowling-aimpanel-title">Left / Right</div>
-          <div className="bowling-modes">
-            <span className={`bowling-mode${hud.aimMode === "move" ? " is-on" : ""}`}>Move</span>
-            <span className={`bowling-mode${hud.aimMode === "rotate" ? " is-on" : ""}`}>Rotate</span>
-          </div>
-          <div className="bowling-aimpanel-note">A to switch</div>
-        </div>
-      )}
-
-      {hud.phase === "aim" && hud.cameraView === "lineup" && (
-        <div className="bowling-zoomtag">Checking your line · ↓ to go back</div>
-      )}
-
-      {hud.phase === "wind" && <div className="bowling-winding">Swing and let go of B!</div>}
-
-      {hud.banner && (
-        <div className={`bowling-banner bowling-banner-${hud.bannerKind}`} key={`${hud.frameIndex}-${hud.banner}`}>
-          {hud.banner}
-        </div>
-      )}
-
-      {hud.phase === "final" && (
-        <div className="bowling-final">
-          <div className="bowling-final-card">
-            <h2 className="bowling-final-title">Game Over</h2>
-            {multiplayer ? (
-              <ol className="bowling-results">
-                {players
-                  .map((info, i) => ({ info, score: scores[i] }))
-                  .sort((a, b) => b.score - a.score)
-                  .map(({ info, score }, rank) => (
-                    <li key={info.player} className={`bowling-result${score === best ? " is-winner" : ""}`}>
-                      <span className="bowling-result-rank">{rank + 1}</span>
-                      <span className="bowling-result-who">
-                        P{info.player} · {info.mii.name}
-                      </span>
-                      <span className="bowling-result-score">{score}</span>
-                    </li>
-                  ))}
-              </ol>
-            ) : (
-              <>
-                <div className="bowling-final-score">{scores[0]}</div>
-                <p className="bowling-final-note">
-                  {scores[0] === 300
-                    ? "A perfect game!"
-                    : scores[0] >= 200
-                      ? "Fantastic bowling!"
-                      : scores[0] >= 130
-                        ? "Nice game!"
-                        : "Good game!"}
-                </p>
-              </>
-            )}
-            <p className="bowling-final-hint">Press A to return to the Wii Menu</p>
-          </div>
-        </div>
-      )}
-
-      <div className="bowling-hint">
-        {hud.phase === "intro"
-          ? "A to skip"
-          : hud.phase === "aim"
-            ? `←/→ ${hud.aimMode === "move" ? "move" : "rotate"} · A to switch · ↑ check your line · ↓ back · 1 to reset · Hold B, swing, release to bowl`
-            : hud.phase === "wind"
-              ? "Swing the remote forward and release B"
-              : "HOME to exit"}
-      </div>
+      <div className="bowling-viewport" ref={containerRef} />      <BowlingHud hud={hud} players={players} />
     </div>
   );
 }

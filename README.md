@@ -38,6 +38,16 @@ that fills in as people join, each phone is assigned a player number it
 keeps across reconnects, and every message it sends is stamped with that
 number by the room so the screen always knows who did what.
 
+**Spectator screens.** Open `/watch/<room code>` on any device for a
+read-only mirror of the main screen. Rooms were never network-scoped, so a
+phone could always join from anywhere -- what was missing was something for
+a remote player to look at. Useful in person too: a second TV can mirror the
+game without running it. The host stays authoritative and publishes a
+snapshot ~30x a second (skipped entirely when nobody is watching);
+spectators only draw, never simulate, so they can't drift out of step.
+Bowling and the Tanks! deathmatch mirror fully; other views show a status
+card.
+
 Playable channels: **Bowling**, Shooting Range, Tanks!, Charge!, the Mii
 Channel (full creator + plaza), the NES Channel and the DS Channel. The
 remaining tiles are still "Coming soon" placeholders.

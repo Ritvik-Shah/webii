@@ -480,3 +480,104 @@ export const VERSUS_WALLS: WallRect[] = [
   { x: ARENA_W - 496, y: ARENA_H - 460, w: 26, h: 130 },
 ];
 
+
+
+/** The whole deathmatch as drawable state -- what a spectator screen is sent. */
+export interface VersusWorld {
+  tanks: Tank[];
+  shells: VersusShell[];
+  mines: VersusMine[];
+  explosions: ExplosionState[];
+}
+
+export interface VersusShell extends MovingShell {
+  owner: number;
+}
+
+export interface VersusMine extends MineState {
+  owner: number;
+}
+
+export interface Tank {
+  /** Room player number, which is also how shells and mines are attributed. */
+  player: number;
+  color: string;
+  treadColor: string;
+  x: number;
+  y: number;
+  angle: number;
+  alive: boolean;
+  respawnTimer: number;
+  invulnTimer: number;
+  score: number;
+  lastFireAt: number;
+  lastMineAt: number;
+  /** Reticle position in arena units, driven by that player's pointer. */
+  aimX: number;
+  aimY: number;
+  held: Set<string>;
+}
+
+/** Darker shade of the Mii's shirt, for the tank treads. */
+export function treadShade(hex: string): string {
+  const value = hex.replace("#", "");
+  const num = parseInt(value.length === 3 ? value.replace(/(.)/g, "$1$1") : value, 16);
+  const r = Math.round((num >> 16) * 0.55);
+  const g = Math.round(((num >> 8) & 255) * 0.55);
+  const b = Math.round((num & 255) * 0.55);
+  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, "0")}`;
+}
+
+
+/** Draws a deathmatch frame. Pure: the host and every spectator mirror run
+ * this over the same world and get the same picture. */
+export function drawVersusWorld(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  world: VersusWorld,
+) {
+      // Fit the fixed-size arena into whatever the display gives us.
+      const scale = Math.min(width / ARENA_W, height / ARENA_H);
+      ctx.clearRect(0, 0, width, height);
+      ctx.fillStyle = "#1b2415";
+      ctx.fillRect(0, 0, width, height);
+      ctx.save();
+      ctx.translate((width - ARENA_W * scale) / 2, (height - ARENA_H * scale) / 2);
+      ctx.scale(scale, scale);
+
+      ctx.fillStyle = "#2e3d22";
+      ctx.fillRect(0, 0, ARENA_W, ARENA_H);
+      ctx.fillStyle = "#57694a";
+      for (const wall of VERSUS_WALLS) ctx.fillRect(wall.x, wall.y, wall.w, wall.h);
+
+      for (const mine of world.mines) drawMine(ctx, mine);
+      for (const shell of world.shells) {
+        const owner = world.tanks.find((t) => t.player === shell.owner);
+        drawShell(ctx, shell, owner?.color ?? "#ffffff");
+      }
+
+      for (const tank of world.tanks) {
+        if (!tank.alive) continue;
+        // Faded rather than blinking while the respawn shield is up: every
+        // tank starts a match invulnerable at once, and blinking made them
+        // all vanish on the same frames.
+        ctx.save();
+        if (tank.invulnTimer > 0) ctx.globalAlpha = 0.45;
+        const turret = Math.atan2(tank.aimY - tank.y, tank.aimX - tank.x);
+        drawTank(ctx, tank.x, tank.y, tank.angle, turret, tank.color, tank.treadColor);
+        // Player number above each tank, so you can find yourself in a scrum.
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "bold 15px system-ui, sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(`P${tank.player}`, tank.x, tank.y - TANK_RADIUS - 8);
+        ctx.restore();
+      }
+
+      for (const ex of world.explosions) drawExplosion(ctx, ex);
+      for (const tank of world.tanks) {
+        if (tank.alive) drawReticle(ctx, tank.aimX, tank.aimY);
+      }
+
+      ctx.restore();
+}

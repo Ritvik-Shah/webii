@@ -28,4 +28,11 @@ export interface GameProps {
   /** In room-join order, so `players[0]` is the host and a solo game can
    * simply use it. Always at least one entry. */
   players: PlayerInfo[];
+  /**
+   * Publish a render snapshot for spectator screens. A no-op when nobody is
+   * watching, so games can call it every frame without checking first.
+   */
+  publish: (state: unknown) => void;
+  /** How many spectator screens are mirroring this game right now. */
+  spectators: number;
 }

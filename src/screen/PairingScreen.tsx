@@ -53,6 +53,8 @@ export function PairingScreen({ roomCode, screenSocketConnected, players }: Pair
 
       <p className="pairing-hint">
         Scan the QR code with your phone, or visit {location.host}/play and type the code in by hand.
+        <br />
+        Watching from elsewhere? Open {location.host}/watch/{roomCode} for a second screen.
       </p>
       <p className="pairing-status">
         {!screenSocketConnected

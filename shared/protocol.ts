@@ -3,7 +3,10 @@
 // interprets these payloads for v1 -- it just relays JSON text frames to the
 // other party in the room, plus emits its own "presence" events.
 
-export type Role = "screen" | "controller";
+/** "screen" is the one host that runs the games; "spectator" is a read-only
+ * mirror of it (a second TV in the room, or someone playing from elsewhere
+ * who needs a view to go with their phone). */
+export type Role = "screen" | "controller" | "spectator";
 
 /** A room seats one screen and up to this many phones, numbered from 1. */
 export const MAX_PLAYERS = 4;
@@ -14,6 +17,9 @@ export interface PresenceMessage {
   /** Player numbers currently connected, ascending. Empty means nobody has
    * paired a phone yet. */
   players: number[];
+  /** How many spectator screens are mirroring the host. The host uses this
+   * to skip publishing snapshots when nobody is watching. */
+  spectators: number;
   roomCode: string;
 }
 
@@ -113,6 +119,20 @@ export interface HapticMessage {
   pattern: number[];
 }
 
+/**
+ * Host screen -> spectator screens: everything needed to draw the current
+ * frame. The host stays authoritative and simply describes what it is
+ * showing; spectators never simulate anything, which is what keeps them in
+ * step without needing the games to be deterministic.
+ */
+export interface SnapshotMessage {
+  type: "snapshot";
+  /** Which screen the host is on: "lobby", "menu", "game:bowling", ... */
+  view: string;
+  /** View-specific render state, shaped by whatever draws that view. */
+  state: unknown;
+}
+
 /** Screen -> controller: whose turn it is, so every phone can show either
  * "Your turn" or who they're waiting on. */
 export interface TurnMessage {
@@ -125,7 +145,14 @@ export interface TurnMessage {
 
 /** Screen -> controller. Setting `to` routes the message to that one player
  * instead of broadcasting it to every phone in the room. */
-export type ScreenMessage = (GameStateMessage | HapticMessage | TurnMessage | PingMessage | PongMessage) & {
+export type ScreenMessage = (
+  | GameStateMessage
+  | HapticMessage
+  | TurnMessage
+  | SnapshotMessage
+  | PingMessage
+  | PongMessage
+) & {
   to?: number;
 };
 
@@ -141,5 +168,14 @@ export function isAssigned(msg: unknown): msg is AssignedMessage {
   return !!msg && typeof msg === "object" && (msg as { type?: string }).type === "assigned";
 }
 
+export function isSnapshot(msg: unknown): msg is SnapshotMessage {
+  return !!msg && typeof msg === "object" && (msg as { type?: string }).type === "snapshot";
+}
+
 /** WebSocket close code the room uses when every player slot is taken. */
 export const CLOSE_ROOM_FULL = 4001;
+
+/** How often the host publishes snapshots while a game is running. Fast
+ * enough that motion reads smoothly on a mirror, slow enough that a room
+ * full of spectators isn't relaying megabytes a minute. */
+export const SNAPSHOT_HZ = 30;

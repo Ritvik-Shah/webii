@@ -46,9 +46,38 @@ export function ScreenApp() {
   const [roomCode, setRoomCode] = useState<string | null>(null);
   const [presence, setPresence] = useState<PresenceMessage | null>(null);
   const [view, setView] = useState<ScreenView>({ kind: "lobby" });
+  const [kickMenuOpen, setKickMenuOpen] = useState(false);
+  const [kickTarget, setKickTarget] = useState<number | null>(null);
 
   const busRef = useRef<EventBus<ControllerMessage> | null>(null);
   if (!busRef.current) busRef.current = createEventBus<ControllerMessage>();
+  const sendRef = useRef<(msg: object) => void>(() => {});
+  const viewRef = useRef<ScreenView>(view);
+  viewRef.current = view;
+  const playersRef = useRef<number[]>([]);
+  const kickMenuOpenRef = useRef(false);
+  kickMenuOpenRef.current = kickMenuOpen;
+  const kickTargetRef = useRef<number | null>(null);
+  kickTargetRef.current = kickTarget;
+
+  const pickKickTarget = useCallback((direction: 1 | -1) => {
+    const candidates = playersRef.current.slice(1);
+    if (candidates.length === 0) return;
+    const current = kickTargetRef.current;
+    const index = current === null ? -1 : candidates.indexOf(current);
+    const next = candidates[(index + direction + candidates.length) % candidates.length];
+    setKickTarget(next);
+  }, []);
+
+  const toggleKickMenu = useCallback(() => {
+    if (playersRef.current.length < 2) return;
+    setKickMenuOpen((open) => {
+      if (!open && !playersRef.current.includes(kickTargetRef.current ?? 0)) {
+        setKickTarget(playersRef.current[1]);
+      }
+      return !open;
+    });
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -66,10 +95,34 @@ export function ScreenApp() {
 
   const onMessage = useCallback((msg: PresenceMessage | StampedControllerMessage) => {
     if (isPresence(msg)) {
+      playersRef.current = msg.players;
       setPresence(msg);
       return;
     }
     const player = msg.player ?? 0;
+    const host = playersRef.current[0];
+    if (viewRef.current.kind === "game" && player === host && msg.type === "button" && msg.state === "down") {
+      if (msg.button === "MINUS") {
+        toggleKickMenu();
+        return;
+      }
+      if (kickMenuOpenRef.current) {
+        if (msg.button === "UP") {
+          pickKickTarget(-1);
+          return;
+        }
+        if (msg.button === "DOWN") {
+          pickKickTarget(1);
+          return;
+        }
+        if (msg.button === "B") {
+          const target = kickTargetRef.current;
+          if (target !== null && target !== host) sendRef.current({ type: "kick", player: target });
+          setKickMenuOpen(false);
+          return;
+        }
+      }
+    }
     // HOME always returns to the Wii Menu, from any view (game or Mii
     // select), handled centrally here so individual screens don't each need
     // to listen for it.
@@ -84,12 +137,18 @@ export function ScreenApp() {
     role: "screen",
     onMessage,
   });
+  sendRef.current = send;
 
   const players = presence?.players ?? [];
   const spectators = presence?.spectators ?? 0;
   // The lowest-numbered connected player drives shared screens (the lobby,
   // the Wii Menu) so four remotes don't fight over one cursor.
   const hostPlayer = players[0];
+
+  useEffect(() => {
+    if (kickTarget !== null && !players.includes(kickTarget)) setKickTarget(players[1] ?? null);
+    if (players.length < 2) setKickMenuOpen(false);
+  }, [players, kickTarget]);
 
   // Only ever removes someone other than the host, so player 1 can't drop
   // themselves and leave the room with nobody able to start it.
@@ -217,6 +276,18 @@ export function ScreenApp() {
   return (
     <div className="screen-root">
       {renderMain()}
+      {view.kind === "game" && kickMenuOpen && (
+        <div className="player-manager" role="dialog" aria-label="Player manager">
+          <h2>Player Manager</h2>
+          <p>Remove a disconnected player without leaving the game.</p>
+          {players.slice(1).map((player) => (
+            <div key={player} className={`player-manager-seat${player === kickTarget ? " is-selected" : ""}`}>
+              Player {player}{player === kickTarget ? " — B to remove" : ""}
+            </div>
+          ))}
+          <small>Player 1: Up/Down choose · B remove · − close</small>
+        </div>
+      )}
       {players.length > 0 && <DebugOverlay subscribe={subscribe} />}
     </div>
   );

@@ -83,6 +83,9 @@ export default function Wiimote({
           <button className="wiimote-btn wiimote-recenter" onClick={recenter}>
             Recenter
           </button>
+          <button className="wiimote-btn wiimote-minus" {...pressHandlers("MINUS")}>
+            −
+          </button>
           <button className="wiimote-btn wiimote-home" {...pressHandlers("HOME")}>
             HOME
           </button>

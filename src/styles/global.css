@@ -613,7 +613,8 @@ a {
 }
 
 .wiimote-home,
-.wiimote-recenter {
+.wiimote-recenter,
+.wiimote-minus {
   width: 60px;
   height: 60px;
   min-width: 60px;
@@ -639,6 +640,16 @@ a {
 .wiimote-recenter:active {
   background: rgba(255, 198, 92, 0.15);
   transform: scale(0.94);
+}
+
+.wiimote-minus {
+  border-radius: 999px;
+  color: var(--ctrl-text);
+  background: var(--ctrl-surface);
+  border: 2px solid #90a0ad;
+  box-shadow: 0 4px 0 #677681;
+  font-size: 1.5rem;
+  line-height: 1;
 }
 
 .wiimote-a {
@@ -997,4 +1008,53 @@ a {
   border: 2px solid #c43b3b;
   background: #ffe3e3;
   color: #7a1f1f;
+}
+
+/* Host-only in-game recovery control. The game remains visible behind it so
+ * a dropped controller can be cleared without throwing away the session. */
+.player-manager {
+  position: fixed;
+  z-index: 100;
+  top: 50%;
+  left: 50%;
+  width: min(420px, calc(100vw - 40px));
+  padding: 24px;
+  transform: translate(-50%, -50%);
+  border: 3px solid #5d86b9;
+  border-radius: 22px;
+  box-shadow: 0 16px 42px rgba(8, 30, 58, 0.5);
+  background: rgba(244, 250, 255, 0.97);
+  color: var(--wii-ink);
+  text-align: center;
+}
+
+.player-manager h2 {
+  margin: 0;
+  font-size: 1.7rem;
+}
+
+.player-manager p {
+  margin: 8px 0 16px;
+  color: var(--wii-ink-soft);
+}
+
+.player-manager-seat {
+  margin: 7px 0;
+  padding: 11px 14px;
+  border: 2px solid #b8cbe0;
+  border-radius: 12px;
+  font-weight: 700;
+}
+
+.player-manager-seat.is-selected {
+  border-color: #c43b3b;
+  background: #ffe3e3;
+  color: #7a1f1f;
+}
+
+.player-manager small {
+  display: block;
+  margin-top: 18px;
+  color: var(--wii-ink-soft);
+  font-weight: 700;
 }

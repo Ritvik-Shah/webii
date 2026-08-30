@@ -53,10 +53,10 @@ export interface RecenterMessage {
 }
 
 // Full Wii Remote face layout: D-pad (digital, no diagonal blending), A, B,
-// the two small face buttons (1/2), and Home. Button *meaning* is contextual
+// the two small face buttons (1/2), Minus, and Home. Button *meaning* is contextual
 // per game, same as the real thing (e.g. 2 lays a mine in Tanks!) -- this
 // type just names the physical control that was pressed.
-export type ButtonName = "A" | "B" | "ONE" | "TWO" | "HOME" | "UP" | "DOWN" | "LEFT" | "RIGHT";
+export type ButtonName = "A" | "B" | "ONE" | "TWO" | "MINUS" | "HOME" | "UP" | "DOWN" | "LEFT" | "RIGHT";
 
 export interface ButtonMessage {
   type: "button";

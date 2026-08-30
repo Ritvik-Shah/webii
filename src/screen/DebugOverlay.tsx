@@ -5,7 +5,7 @@ interface DebugOverlayProps {
   subscribe: (fn: (msg: ControllerMessage, player: number) => void) => () => void;
 }
 
-const BUTTONS: ButtonName[] = ["UP", "DOWN", "LEFT", "RIGHT", "A", "B", "ONE", "TWO", "HOME"];
+const BUTTONS: ButtonName[] = ["UP", "DOWN", "LEFT", "RIGHT", "A", "B", "ONE", "TWO", "MINUS", "HOME"];
 
 /** Verification tool for Phase 2's acceptance criterion: every control on
  * the phone (D-pad/A/B/1/2/Home + pointer) independently lights up here as

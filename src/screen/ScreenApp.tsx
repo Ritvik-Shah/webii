@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ComponentType } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState, type ComponentType } from "react";
 import type { ControllerMessage, PresenceMessage } from "../../shared/protocol";
 import { isPresence } from "../../shared/protocol";
 import { createEventBus, type EventBus } from "../lib/eventBus";
@@ -19,7 +19,13 @@ import { NesGame1, NesGame2 } from "./nes/BundledGames";
 import { NdsChannel } from "./nds/NdsChannel";
 import type { GameProps } from "./games/types";
 
+// Bowling is the only channel that pulls in three.js, and it roughly doubles
+// the bundle. Loading it on demand keeps the menu and every other channel
+// as light as they were before it existed.
+const Bowling = lazy(() => import("./games/bowling/Bowling").then((m) => ({ default: m.Bowling })));
+
 const GAME_SCREENS: Record<string, ComponentType<GameProps>> = {
+  bowling: Bowling,
   target: TargetPractice,
   tanks: Tanks,
   charge: Charge,
@@ -124,7 +130,9 @@ export function ScreenApp() {
         const GameScreen = GAME_SCREENS[view.channelId];
         if (!GameScreen) return null;
         return (
-          <GameScreen send={send} subscribe={subscribe} onExit={() => setView({ kind: "menu" })} mii={view.mii} />
+          <Suspense fallback={<div className="screen-loading">Loading channel…</div>}>
+            <GameScreen send={send} subscribe={subscribe} onExit={() => setView({ kind: "menu" })} mii={view.mii} />
+          </Suspense>
         );
       }
       default:

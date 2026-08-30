@@ -31,9 +31,19 @@ Phone (Controller)                     Laptop/TV (Screen)
 Phases 0-3 of the build plan are done: scaffold + deploy, pairing/relay
 plumbing, the phone controller (motion permission, tilt-to-point, touch
 buttons), and the Wii Menu home screen shell (hover-wobble, chimes, launch
-animation). All 12 channel tiles are currently "Coming soon" placeholders —
-the Wii Sports-style mini-games, Mii avatar channel, and two-player support
-are not built yet.
+animation).
+
+Playable channels: **Bowling**, Shooting Range, Tanks!, Charge!, the Mii
+Channel (full creator + plaza), the NES Channel and the DS Channel. The
+remaining tiles are still "Coming soon" placeholders, and two-player support
+isn't built yet.
+
+Bowling is a real 3D scene (three.js): a regulation-dimension lane with
+gutters, pin deck, pit, masking units and neighbouring lanes, your Mii
+rebuilt as a 3D character, ball/pin physics, camera cuts that follow the ball
+and cut to the deck on impact, and a full ten-frame scorecard. It's the only
+channel that pulls in three.js, so it's lazy-loaded and the rest of the app
+stays as light as it was before.
 
 ## Local development
 

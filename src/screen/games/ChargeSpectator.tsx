@@ -4,15 +4,22 @@ import { MiiAvatar } from "../mii/MiiAvatar";
 import type { Mii } from "../mii/Mii";
 import { drawChargeWorld, type ChargeSnapshot } from "./Charge";
 import { useGameCanvas } from "./useGameCanvas";
+import { MIRROR_DELAY_MS } from "../../../shared/protocol";
+import { useSnapshotBuffer } from "./interpolate";
 
 /** Read-only mirror of one player's Charge! run. */
 export function ChargeSpectator({ snapshot, mii }: { snapshot: ChargeSnapshot; mii: Mii }) {
-  const snapshotRef = useRef(snapshot);
-  snapshotRef.current = snapshot;
+  // Arena/screen coordinates are in pixels here, so the snap guard is a
+  // pixel distance -- a tank respawning across the map should cut, not slide.
+  const sample = useSnapshotBuffer(snapshot, { delayMs: MIRROR_DELAY_MS, snapDistance: 400 });
+  const sampleRef = useRef(sample);
+  sampleRef.current = sample;
   const riderRef = useRef<HTMLDivElement | null>(null);
 
   const canvasRef = useGameCanvas((ctx, _dt, width, height) => {
-    const cow = drawChargeWorld(ctx, width, height, snapshotRef.current.engine);
+    const current = sampleRef.current(performance.now());
+    if (!current) return;
+    const cow = drawChargeWorld(ctx, width, height, current.engine);
     // The rider is a DOM element sat on top of the canvas, so it has to be
     // moved to wherever the cow ended up -- same as on the host.
     const rider = riderRef.current;

@@ -484,7 +484,7 @@ export const VERSUS_WALLS: WallRect[] = [
 
 /** The whole deathmatch as drawable state -- what a spectator screen is sent. */
 export interface VersusWorld {
-  tanks: Tank[];
+  tanks: TankView[];
   shells: VersusShell[];
   mines: VersusMine[];
   explosions: ExplosionState[];
@@ -498,7 +498,10 @@ export interface VersusMine extends MineState {
   owner: number;
 }
 
-export interface Tank {
+/** The parts of a tank a mirror needs to draw it. Split out from `Tank` so
+ * the published world carries only these: the rest is host-side bookkeeping,
+ * and `held` is a Set, which JSON silently turns into an empty object. */
+export interface TankView {
   /** Room player number, which is also how shells and mines are attributed. */
   player: number;
   color: string;
@@ -507,14 +510,17 @@ export interface Tank {
   y: number;
   angle: number;
   alive: boolean;
-  respawnTimer: number;
   invulnTimer: number;
-  score: number;
-  lastFireAt: number;
-  lastMineAt: number;
   /** Reticle position in arena units, driven by that player's pointer. */
   aimX: number;
   aimY: number;
+}
+
+export interface Tank extends TankView {
+  respawnTimer: number;
+  score: number;
+  lastFireAt: number;
+  lastMineAt: number;
   held: Set<string>;
 }
 

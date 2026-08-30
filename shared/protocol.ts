@@ -204,7 +204,14 @@ export const CLOSE_ROOM_FULL = 4001;
 /** ...and when the host removes a player from the room. */
 export const CLOSE_REMOVED = 4002;
 
-/** How often the host publishes snapshots while a game is running. Fast
- * enough that motion reads smoothly on a mirror, slow enough that a room
- * full of spectators isn't relaying megabytes a minute. */
-export const SNAPSHOT_HZ = 30;
+/** How often the host publishes snapshots while a game is running. Mirrors
+ * interpolate between snapshots and deliberately draw a little behind live,
+ * and that buffer has to be at least one publish interval -- so a faster
+ * rate directly buys back latency on the watch screen. 50 Hz keeps the
+ * buffer to ~30 ms while staying modest on bandwidth. */
+export const SNAPSHOT_HZ = 50;
+
+/** How far behind live a mirror draws, in ms. Just over one publish
+ * interval: enough to always have two snapshots to blend between, without
+ * adding delay for its own sake. */
+export const MIRROR_DELAY_MS = 30;

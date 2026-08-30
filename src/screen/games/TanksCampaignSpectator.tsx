@@ -3,14 +3,20 @@ import "./tanks.css";
 import type { CampaignSnapshot } from "./Tanks";
 import { drawCampaignWorld } from "./tanksCore";
 import { useGameCanvas } from "./useGameCanvas";
+import { MIRROR_DELAY_MS } from "../../../shared/protocol";
+import { useSnapshotBuffer } from "./interpolate";
 
 /** Read-only mirror of the single-player Tanks campaign. */
 export function TanksCampaignSpectator({ snapshot }: { snapshot: CampaignSnapshot }) {
-  const snapshotRef = useRef(snapshot);
-  snapshotRef.current = snapshot;
+  // Arena/screen coordinates are in pixels here, so the snap guard is a
+  // pixel distance -- a tank respawning across the map should cut, not slide.
+  const sample = useSnapshotBuffer(snapshot, { delayMs: MIRROR_DELAY_MS, snapDistance: 150 });
+  const sampleRef = useRef(sample);
+  sampleRef.current = sample;
 
   const canvasRef = useGameCanvas((ctx, _dt, width, height) => {
-    drawCampaignWorld(ctx, width, height, snapshotRef.current.world);
+    const current = sampleRef.current(performance.now());
+    if (current) drawCampaignWorld(ctx, width, height, current.world);
   });
 
   return (

@@ -358,6 +358,7 @@ export function TanksVersus({ players, subscribe, send, onExit, publish }: Tanks
     (ctx: CanvasRenderingContext2D, dt: number, width: number, height: number) => {
       step(dt);
       const world: VersusWorld = {
+        // Only the drawable fields go on the wire.
         tanks: tanksRef.current,
         shells: shellsRef.current,
         mines: minesRef.current,

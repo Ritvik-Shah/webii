@@ -3,6 +3,8 @@ import "./bowling.css";
 import type { BowlingSnapshot } from "./Bowling";
 import { BowlingHud } from "./BowlingHud";
 import { createBowlingScene, type BowlingScene } from "./scene";
+import { MIRROR_DELAY_MS } from "../../../../shared/protocol";
+import { useSnapshotBuffer } from "../interpolate";
 
 interface BowlingSpectatorProps {
   /** Latest snapshot from the host. Replaced ~30 times a second. */
@@ -16,11 +18,16 @@ interface BowlingSpectatorProps {
  */
 export function BowlingSpectator({ snapshot }: BowlingSpectatorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const snapshotRef = useRef(snapshot);
-  snapshotRef.current = snapshot;
+  // Positions are in metres here, so anything moving more than half a metre
+  // between snapshots is a cut (the ball leaving the hand), not motion.
+  const sample = useSnapshotBuffer(snapshot, { delayMs: MIRROR_DELAY_MS, snapDistance: 0.5 });
+  const sampleRef = useRef(sample);
+  sampleRef.current = sample;
 
   // Rebuild only when the line-up changes, since the Miis are baked into the
   // scene's bowlers; within a game that never happens.
+  const playersRef = useRef(snapshot.players);
+  playersRef.current = snapshot.players;
   const miiKey = snapshot.players.map((p) => `${p.player}:${p.mii.id}`).join("|");
 
   useEffect(() => {
@@ -29,7 +36,7 @@ export function BowlingSpectator({ snapshot }: BowlingSpectatorProps) {
 
     let scene: BowlingScene;
     try {
-      scene = createBowlingScene(container, snapshotRef.current.players.map((p) => p.mii));
+      scene = createBowlingScene(container, playersRef.current.map((p) => p.mii));
     } catch {
       return; // No WebGL here; the HUD alone still tells you what's happening.
     }
@@ -44,8 +51,8 @@ export function BowlingSpectator({ snapshot }: BowlingSpectatorProps) {
       rafId = requestAnimationFrame(frame);
       const dt = Math.min(0.04, (now - last) / 1000);
       last = now;
-      const current = snapshotRef.current;
-      scene.render(dt, current.sim, current.view);
+      const current = sampleRef.current(now);
+      if (current) scene.render(dt, current.sim, current.view);
     }
     rafId = requestAnimationFrame(frame);
 

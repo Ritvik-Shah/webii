@@ -5,6 +5,7 @@ import { POINTER_SENSITIVITY } from "./usePointerGrid";
 import { createEventBus, type EventBus } from "../lib/eventBus";
 import { fetchNewRoomCode } from "../lib/roomCode";
 import { useRoomSocket } from "../lib/useRoomSocket";
+import { useWakeLock } from "../lib/useWakeLock";
 import { PairingScreen } from "./PairingScreen";
 import { WiiMenu } from "./WiiMenu";
 import { DebugOverlay } from "./DebugOverlay";
@@ -57,6 +58,8 @@ type ScreenView =
 
 export function ScreenApp() {
   const [roomCode, setRoomCode] = useState<string | null>(null);
+  // A TV showing a game must not dim halfway through it.
+  useWakeLock();
   const [presence, setPresence] = useState<PresenceMessage | null>(null);
   const [view, setView] = useState<ScreenView>({ kind: "lobby" });
   const [kickMenuOpen, setKickMenuOpen] = useState(false);

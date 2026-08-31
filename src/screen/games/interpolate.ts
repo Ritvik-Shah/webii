@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from "react";
-import { lerpDeep } from "./snapshotLerp";
+import { adaptiveDelay, lerpDeep } from "./snapshotLerp";
 
 // Buffering half of snapshot interpolation. The blending itself lives in
 // snapshotLerp.ts, which has no React in it so it can be tested directly.
@@ -19,14 +19,25 @@ interface BufferOptions {
  */
 export function useSnapshotBuffer<T>(snapshot: T | null, { delayMs = 70, snapDistance }: BufferOptions = {}) {
   const bufferRef = useRef<Array<{ at: number; value: T }>>([]);
+  // How far apart snapshots have really been arriving. The configured delay
+  // is only a floor: network jitter, not the publish rate, is what empties
+  // the buffer and makes a mirror look like it keeps pausing.
+  const gapsRef = useRef<number[]>([]);
+  const effectiveDelayRef = useRef(delayMs);
 
   useEffect(() => {
     if (snapshot === null || snapshot === undefined) return;
     const buffer = bufferRef.current;
-    buffer.push({ at: performance.now(), value: snapshot });
+    const arrivedAt = performance.now();
+    if (buffer.length > 0) {
+      gapsRef.current.push(arrivedAt - buffer[buffer.length - 1].at);
+      if (gapsRef.current.length > 30) gapsRef.current.shift();
+      effectiveDelayRef.current = adaptiveDelay(gapsRef.current, delayMs);
+    }
+    buffer.push({ at: arrivedAt, value: snapshot });
     // Two entries either side of the draw point is all that's ever needed;
     // anything older is dead weight.
-    while (buffer.length > 2 && buffer[1].at < performance.now() - delayMs) buffer.shift();
+    while (buffer.length > 2 && buffer[1].at < performance.now() - effectiveDelayRef.current) buffer.shift();
     if (buffer.length > 8) buffer.splice(0, buffer.length - 8);
   }, [snapshot, delayMs]);
 
@@ -34,7 +45,7 @@ export function useSnapshotBuffer<T>(snapshot: T | null, { delayMs = 70, snapDis
     (now: number): T | null => {
       const buffer = bufferRef.current;
       if (buffer.length === 0) return snapshot ?? null;
-      const target = now - delayMs;
+      const target = now - effectiveDelayRef.current;
 
       // Before the buffer starts, or only one snapshot so far: nothing to
       // blend towards yet.

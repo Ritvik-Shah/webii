@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import type { AssignedMessage, PhoneView, PresenceMessage, RemovedMessage, ScreenMessage, TurnMessage } from "../../shared/protocol";
 import { CLOSE_REMOVED, CLOSE_ROOM_FULL, MAX_PLAYERS, isAssigned, isPhoneView, isPresence, isRemoved } from "../../shared/protocol";
 import { useRoomSocket } from "../lib/useRoomSocket";
+import { useWakeLock } from "../lib/useWakeLock";
 import { useMotionStream } from "./useMotionStream";
 import PermissionGate from "./PermissionGate";
 import PhoneGameView from "./PhoneGameView";
@@ -30,6 +31,10 @@ function rememberedSlot(roomCode: string): number {
 export default function ControllerApp() {
   const { roomCode = "" } = useParams<{ roomCode: string }>();
   const [permission, setPermission] = useState<"unknown" | "granted" | "denied">("unknown");
+  // Phones sleep fastest of all, and a remote is often idle between turns.
+  // Held only once past the permission gate, which is also the tap that
+  // makes the request allowed.
+  useWakeLock(permission === "granted");
   const [presence, setPresence] = useState<PresenceMessage | null>(null);
   const [player, setPlayer] = useState<number>(() => rememberedSlot(roomCode));
   const [roomFull, setRoomFull] = useState(false);

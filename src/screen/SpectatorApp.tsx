@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import type { PresenceMessage, ScreenMessage, SnapshotMessage } from "../../shared/protocol";
 import { isPresence, isSnapshot } from "../../shared/protocol";
 import { useRoomSocket } from "../lib/useRoomSocket";
+import { useWakeLock } from "../lib/useWakeLock";
 import { PairingScreen } from "./PairingScreen";
 import { Cursor } from "./Cursor";
 import { WiiMenu, type WiiMenuSnapshot } from "./WiiMenu";
@@ -57,6 +58,8 @@ const CURSOR_COLORS = ["#0b3d91", "#c43b3b", "#3bb54a", "#f4a300", "#8a3bc4", "#
 
 export function SpectatorApp() {
   const { roomCode = "" } = useParams<{ roomCode: string }>();
+  // A mirror is watched, never touched, so it would sleep almost immediately.
+  useWakeLock();
   const [snapshot, setSnapshot] = useState<SnapshotMessage | null>(null);
   // Kept apart from the main snapshot: the cursor arrives far more often
   // than the view does, and must not replace it.

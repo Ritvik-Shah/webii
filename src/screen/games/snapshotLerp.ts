@@ -46,3 +46,54 @@ export function lerpDeep<T>(a: T, b: T, t: number, snapDistance = Infinity): T {
   return b;
 }
 
+
+export interface BufferedSnapshot<T> {
+  at: number;
+  value: T;
+}
+
+/**
+ * Pick the frame to draw at `now`, interpolating between the two snapshots
+ * either side of `now - delayMs`.
+ *
+ * Returns `dry: true` when there was nothing new enough to blend towards, so
+ * the caller is showing the newest snapshot repeatedly -- which is what
+ * frozen, stuttering motion looks like on a mirror.
+ */
+export function sampleBuffer<T>(
+  buffer: BufferedSnapshot<T>[],
+  now: number,
+  delayMs: number,
+  snapDistance?: number,
+): { value: T | null; dry: boolean } {
+  if (buffer.length === 0) return { value: null, dry: true };
+  const target = now - delayMs;
+  if (buffer.length === 1 || target <= buffer[0].at) return { value: buffer[0].value, dry: true };
+
+  for (let i = 0; i < buffer.length - 1; i++) {
+    const from = buffer[i];
+    const to = buffer[i + 1];
+    if (target >= from.at && target <= to.at) {
+      const span = to.at - from.at;
+      const t = span > 0 ? (target - from.at) / span : 1;
+      return { value: lerpDeep(from.value, to.value, t, snapDistance), dry: false };
+    }
+  }
+  return { value: buffer[buffer.length - 1].value, dry: true };
+}
+
+/**
+ * How far behind live to draw, given how far apart snapshots have actually
+ * been arriving. It has to exceed the real gap or the buffer runs dry and
+ * the picture holds still until the next one lands.
+ *
+ * Sized off a high percentile rather than the average, because that is what
+ * actually causes visible stutter: a steady 33 ms stream is fine, but one
+ * late snapshot in twenty empties the buffer and freezes the frame.
+ */
+export function adaptiveDelay(recentGapsMs: number[], floorMs: number): number {
+  if (recentGapsMs.length < 4) return floorMs;
+  const sorted = [...recentGapsMs].sort((a, b) => a - b);
+  const p90 = sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.9))];
+  return Math.max(floorMs, Math.min(220, p90 * 1.5));
+}

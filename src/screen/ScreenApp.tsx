@@ -63,6 +63,7 @@ export function ScreenApp() {
   const [kickTarget, setKickTarget] = useState<number | null>(null);
 
   const lastCursorAt = useRef(0);
+  const cursorsRef = useRef(new Map<number, { x: number; y: number; at: number }>());
   const busRef = useRef<EventBus<ControllerMessage> | null>(null);
   if (!busRef.current) busRef.current = createEventBus<ControllerMessage>();
   const sendRef = useRef<(msg: object) => void>(() => {});
@@ -115,21 +116,27 @@ export function ScreenApp() {
     }
     const player = msg.player ?? 0;
     // Mirrors have no pointer stream of their own, so the host forwards
-    // whoever is currently moving. Throttled to the snapshot rate: this
-    // fires on every pointer tick, dozens of times a second.
+    // every player's pointer, not just the last one to move -- publishing a
+    // single cursor made it snap between whoever moved most recently.
+    // Control is unaffected: who may actually select something is decided by
+    // each screen, not by this.
     if (msg.type === "pointer" && spectatorsRef.current > 0) {
+      cursorsRef.current.set(player, {
+        x: Math.min(100, Math.max(0, 50 + msg.ox * POINTER_SENSITIVITY)),
+        y: Math.min(100, Math.max(0, 50 + msg.oy * POINTER_SENSITIVITY)),
+        at: performance.now(),
+      });
       const now = performance.now();
       if (now - lastCursorAt.current >= 1000 / SNAPSHOT_HZ) {
         lastCursorAt.current = now;
-        sendRef.current({
-          type: "snapshot",
-          view: "cursor",
-          state: {
-            player,
-            x: Math.min(100, Math.max(0, 50 + msg.ox * POINTER_SENSITIVITY)),
-            y: Math.min(100, Math.max(0, 50 + msg.oy * POINTER_SENSITIVITY)),
-          },
-        });
+        // Drop anyone who has not moved in a while, so a pointer does not
+        // hang around after its phone goes quiet.
+        const cursors: { player: number; x: number; y: number }[] = [];
+        for (const [who, point] of cursorsRef.current) {
+          if (now - point.at > 5000) cursorsRef.current.delete(who);
+          else cursors.push({ player: who, x: point.x, y: point.y });
+        }
+        sendRef.current({ type: "snapshot", view: "cursor", state: { cursors } });
       }
     }
     const host = playersRef.current[0];

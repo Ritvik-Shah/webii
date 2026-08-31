@@ -60,7 +60,7 @@ export function SpectatorApp() {
   const [snapshot, setSnapshot] = useState<SnapshotMessage | null>(null);
   // Kept apart from the main snapshot: the cursor arrives far more often
   // than the view does, and must not replace it.
-  const [cursor, setCursor] = useState<{ player: number; x: number; y: number } | null>(null);
+  const [cursors, setCursors] = useState<{ player: number; x: number; y: number }[]>([]);
   const [presence, setPresence] = useState<PresenceMessage | null>(null);
 
   const onMessage = useCallback((msg: PresenceMessage | ScreenMessage) => {
@@ -69,7 +69,7 @@ export function SpectatorApp() {
       return;
     }
     if (isSnapshot(msg)) {
-      if (msg.view === "cursor") setCursor(msg.state as { player: number; x: number; y: number });
+      if (msg.view === "cursor") setCursors((msg.state as { cursors: { player: number; x: number; y: number }[] }).cursors ?? []);
       else setSnapshot(msg);
     }
   }, []);
@@ -201,14 +201,15 @@ export function SpectatorApp() {
   return (
     <>
       {content}
-      {cursor && (
+      {cursors.map((point) => (
         <Cursor
-          x={cursor.x}
-          y={cursor.y}
-          color={CURSOR_COLORS[(cursor.player - 1) % CURSOR_COLORS.length]}
-          label={`P${cursor.player}`}
+          key={point.player}
+          x={point.x}
+          y={point.y}
+          color={CURSOR_COLORS[(point.player - 1) % CURSOR_COLORS.length]}
+          label={`P${point.player}`}
         />
-      )}
+      ))}
     </>
   );
 }

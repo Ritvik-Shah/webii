@@ -8,13 +8,29 @@ import { forwardRef } from "react";
  * component intentionally renders no inline positioning style itself --
  * base centering (translate(-50%, -50%)) lives in the .wii-cursor CSS class.
  */
-export const Cursor = forwardRef<HTMLDivElement>(function Cursor(_props, ref) {
+interface CursorProps {
+  /** Percent of the screen. Used by spectator mirrors, which receive the
+   * position in a snapshot rather than driving it imperatively. */
+  x?: number;
+  y?: number;
+  /** Tints the cursor, so it is obvious which player is driving. */
+  color?: string;
+  label?: string;
+}
+
+export const Cursor = forwardRef<HTMLDivElement, CursorProps>(function Cursor({ x, y, color, label }, ref) {
+  const positioned = x !== undefined && y !== undefined;
   return (
-    <div ref={ref} className="wii-cursor">
+    <div
+      ref={ref}
+      className="wii-cursor"
+      style={positioned ? { left: `${x}%`, top: `${y}%` } : undefined}
+    >
       <svg className="wii-cursor-glyph" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true">
-        <circle cx="16" cy="16" r="13" fill="#ffffff" fillOpacity="0.9" stroke="#0b3d91" strokeWidth="2.5" />
-        <circle cx="16" cy="16" r="3" fill="#0b3d91" />
+        <circle cx="16" cy="16" r="13" fill="#ffffff" fillOpacity="0.9" stroke={color ?? "#0b3d91"} strokeWidth="2.5" />
+        <circle cx="16" cy="16" r="3" fill={color ?? "#0b3d91"} />
       </svg>
+      {label && <span className="wii-cursor-label">{label}</span>}
     </div>
   );
 });

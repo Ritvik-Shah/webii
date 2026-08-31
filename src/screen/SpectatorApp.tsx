@@ -4,6 +4,7 @@ import type { PresenceMessage, ScreenMessage, SnapshotMessage } from "../../shar
 import { isPresence, isSnapshot } from "../../shared/protocol";
 import { useRoomSocket } from "../lib/useRoomSocket";
 import { PairingScreen } from "./PairingScreen";
+import { Cursor } from "./Cursor";
 import { WiiMenu, type WiiMenuSnapshot } from "./WiiMenu";
 import { PlayerManager } from "./PlayerManager";
 import { MiiSelect } from "./mii/MiiSelect";
@@ -19,6 +20,14 @@ import type { BowlingSnapshot } from "./games/bowling/Bowling";
 import type { TurnRoundsSnapshot } from "./games/TurnRounds";
 import { TurnRoundsOverlay } from "./games/TurnRoundsOverlay";
 import { RangeSpectator } from "./games/RangeSpectator";
+import {
+  PartyMirror,
+  PokerMirror,
+  UnoMirror,
+  type PartyMirrorState,
+  type PokerMirrorState,
+  type UnoMirrorState,
+} from "./games/MirrorViews";
 import { ChargeSpectator } from "./games/ChargeSpectator";
 import type { ChargeSnapshot } from "./games/Charge";
 import type { RangeSnapshot } from "./games/TargetPractice";
@@ -43,9 +52,15 @@ const noOp = () => {};
  * opens it so they have something to look at while their phone plays, and a
  * room with more than one TV can mirror the game onto both.
  */
+/** Distinct colour per player, so it is obvious whose cursor is moving. */
+const CURSOR_COLORS = ["#0b3d91", "#c43b3b", "#3bb54a", "#f4a300", "#8a3bc4", "#3bc4a1", "#e85d9e", "#5a5a5a", "#c4a13b", "#3b3bc4"];
+
 export function SpectatorApp() {
   const { roomCode = "" } = useParams<{ roomCode: string }>();
   const [snapshot, setSnapshot] = useState<SnapshotMessage | null>(null);
+  // Kept apart from the main snapshot: the cursor arrives far more often
+  // than the view does, and must not replace it.
+  const [cursor, setCursor] = useState<{ player: number; x: number; y: number } | null>(null);
   const [presence, setPresence] = useState<PresenceMessage | null>(null);
 
   const onMessage = useCallback((msg: PresenceMessage | ScreenMessage) => {
@@ -53,7 +68,10 @@ export function SpectatorApp() {
       setPresence(msg);
       return;
     }
-    if (isSnapshot(msg)) setSnapshot(msg);
+    if (isSnapshot(msg)) {
+      if (msg.view === "cursor") setCursor(msg.state as { player: number; x: number; y: number });
+      else setSnapshot(msg);
+    }
   }, []);
 
   const { connected } = useRoomSocket<PresenceMessage | ScreenMessage>({
@@ -65,6 +83,9 @@ export function SpectatorApp() {
   const basic = snapshot?.state as LobbySnapshot | undefined;
   const players = basic?.players ?? presence?.players ?? [];
 
+  // The view is chosen in one place so the cursor can be laid over all of
+  // them, whatever the room happens to be doing.
+  const content = (() => {
   if (snapshot?.view === "lobby" && basic) {
     return <PairingScreen roomCode={basic.roomCode} screenSocketConnected={connected} players={players} subscribe={noSubscribe} onKick={noOp} />;
   }
@@ -92,7 +113,24 @@ export function SpectatorApp() {
     if (state) return <MiiPlaza subscribe={noSubscribe} roster={state.roster} onSelectMii={noOp} onNewMii={noOp} spectating />;
   }
 
-  if (snapshot?.view === "game:bowling") {
+  if (snapshot?.view === "game:uno") {
+      return <UnoMirror state={snapshot.state as UnoMirrorState} />;
+    }
+
+    if (snapshot?.view === "game:poker") {
+      return <PokerMirror state={snapshot.state as PokerMirrorState} />;
+    }
+
+    const partyTitles: Record<string, string> = {
+      "game:quiplash": "Quiplash",
+      "game:fibbage": "Fibbage",
+      "game:fakinit": "Fakin' It",
+    };
+    if (snapshot && partyTitles[snapshot.view]) {
+      return <PartyMirror title={partyTitles[snapshot.view]} state={snapshot.state as PartyMirrorState} />;
+    }
+
+    if (snapshot?.view === "game:bowling") {
     return (
       <Suspense fallback={<div className="screen-loading">Loading alley…</div>}>
         <BowlingSpectator snapshot={snapshot.state as BowlingSnapshot} />
@@ -158,12 +196,32 @@ export function SpectatorApp() {
       ) : null}
     </div>
   );
+  })();
+
+  return (
+    <>
+      {content}
+      {cursor && (
+        <Cursor
+          x={cursor.x}
+          y={cursor.y}
+          color={CURSOR_COLORS[(cursor.player - 1) % CURSOR_COLORS.length]}
+          label={`P${cursor.player}`}
+        />
+      )}
+    </>
+  );
 }
 
 function describe(view: string): string {
   if (view === "lobby") return "In the lobby, waiting for players to join";
   if (view === "menu") return "Browsing the Wii Menu";
   if (view === "mii-select") return "Choosing Miis";
-  if (view.startsWith("game:")) return `Playing ${view.slice(5)} — this one doesn't mirror yet`;
+  // Only the emulator channels are left: mirroring those would mean
+  // streaming a framebuffer, not describing state.
+  if (view === "game:nes-upload" || view === "game:nds-channel") {
+    return "Playing an emulated game — that one can't be mirrored";
+  }
+  if (view.startsWith("game:")) return `Playing ${view.slice(5)}`;
   return "Watching";
 }

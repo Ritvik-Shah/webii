@@ -1111,3 +1111,19 @@ a {
   color: var(--wii-ink-soft);
   font-weight: 700;
 }
+
+/* Cursor label on a spectator mirror, so it is clear whose pointer it is. */
+.wii-cursor-label {
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  transform: translateX(-50%);
+  margin-top: 2px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: rgba(11, 20, 40, 0.8);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 800;
+  white-space: nowrap;
+}

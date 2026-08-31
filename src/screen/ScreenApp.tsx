@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState, type ComponentType } from "react";
 import type { ControllerMessage, PresenceMessage, StampedControllerMessage } from "../../shared/protocol";
-import { isPresence } from "../../shared/protocol";
+import { SNAPSHOT_HZ, isPresence } from "../../shared/protocol";
+import { POINTER_SENSITIVITY } from "./usePointerGrid";
 import { createEventBus, type EventBus } from "../lib/eventBus";
 import { fetchNewRoomCode } from "../lib/roomCode";
 import { useRoomSocket } from "../lib/useRoomSocket";
@@ -61,6 +62,7 @@ export function ScreenApp() {
   const [kickMenuOpen, setKickMenuOpen] = useState(false);
   const [kickTarget, setKickTarget] = useState<number | null>(null);
 
+  const lastCursorAt = useRef(0);
   const busRef = useRef<EventBus<ControllerMessage> | null>(null);
   if (!busRef.current) busRef.current = createEventBus<ControllerMessage>();
   const sendRef = useRef<(msg: object) => void>(() => {});
@@ -112,6 +114,24 @@ export function ScreenApp() {
       return;
     }
     const player = msg.player ?? 0;
+    // Mirrors have no pointer stream of their own, so the host forwards
+    // whoever is currently moving. Throttled to the snapshot rate: this
+    // fires on every pointer tick, dozens of times a second.
+    if (msg.type === "pointer" && spectatorsRef.current > 0) {
+      const now = performance.now();
+      if (now - lastCursorAt.current >= 1000 / SNAPSHOT_HZ) {
+        lastCursorAt.current = now;
+        sendRef.current({
+          type: "snapshot",
+          view: "cursor",
+          state: {
+            player,
+            x: Math.min(100, Math.max(0, 50 + msg.ox * POINTER_SENSITIVITY)),
+            y: Math.min(100, Math.max(0, 50 + msg.oy * POINTER_SENSITIVITY)),
+          },
+        });
+      }
+    }
     const host = playersRef.current[0];
     if (viewRef.current.kind === "game" && player === host && msg.type === "button" && msg.state === "down") {
       if (msg.button === "MINUS") {

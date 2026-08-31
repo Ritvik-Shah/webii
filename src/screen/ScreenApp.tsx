@@ -30,10 +30,15 @@ import type { GameProps } from "./games/types";
 // Bowling is the only channel that pulls in three.js, and it roughly doubles
 // the bundle. Loading it on demand keeps the menu and every other channel
 // as light as they were before it existed.
+// Mii Island is a whole simulation with its own content tables; a session
+// that never opens it should not pay for it either.
+const Island = lazy(() => import("./games/island/Island").then((m) => ({ default: m.Island })));
+
 const Bowling = lazy(() => import("./games/bowling/Bowling").then((m) => ({ default: m.Bowling })));
 
 const GAME_SCREENS: Record<string, ComponentType<GameProps>> = {
   bowling: Bowling,
+  island: Island,
   target: TargetPractice,
   tanks: Tanks,
   charge: Charge,

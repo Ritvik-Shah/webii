@@ -78,6 +78,8 @@
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.08);
   font-size: 0.95rem;
+  /* Profile cards send several short lines in one note. */
+  white-space: pre-line;
 }
 
 /* ---------- Hand ---------- */

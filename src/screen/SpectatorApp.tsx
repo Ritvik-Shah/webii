@@ -29,6 +29,7 @@ import {
   type PokerMirrorState,
   type UnoMirrorState,
 } from "./games/MirrorViews";
+import type { IslandSnapshot } from "./games/island/IslandView";
 import { ChargeSpectator } from "./games/ChargeSpectator";
 import type { ChargeSnapshot } from "./games/Charge";
 import type { RangeSnapshot } from "./games/TargetPractice";
@@ -38,6 +39,10 @@ import type { RangeSnapshot } from "./games/TargetPractice";
 const BowlingSpectator = lazy(() =>
   import("./games/bowling/BowlingSpectator").then((m) => ({ default: m.BowlingSpectator })),
 );
+
+// Same reasoning for the island: it carries the whole simulation's content
+// tables, and only a room that is actually playing it should download them.
+const IslandMirror = lazy(() => import("./games/island/IslandView").then((m) => ({ default: m.IslandMirror })));
 
 /** What the non-game screens publish: just enough to say what's going on. */
 interface LobbySnapshot {
@@ -115,6 +120,14 @@ export function SpectatorApp() {
     }
     if (state) return <MiiPlaza subscribe={noSubscribe} roster={state.roster} onSelectMii={noOp} onNewMii={noOp} spectating />;
   }
+
+    if (snapshot?.view === "game:island") {
+      return (
+        <Suspense fallback={<div className="screen-loading">Loading the island…</div>}>
+          <IslandMirror snapshot={snapshot.state as IslandSnapshot} />
+        </Suspense>
+      );
+    }
 
   if (snapshot?.view === "game:uno") {
       return <UnoMirror state={snapshot.state as UnoMirrorState} />;

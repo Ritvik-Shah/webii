@@ -26,23 +26,37 @@ export function useWakeLock(active = true) {
   useEffect(() => {
     if (!active) return;
     const api = (navigator as Navigator & { wakeLock?: WakeLockLike }).wakeLock;
-    if (!api) return;
+    if (!api) {
+      document.documentElement.dataset.wakeLock = "unsupported";
+      return;
+    }
 
     let sentinel: WakeLockSentinelLike | null = null;
     let cancelled = false;
+
+    // Reflected onto the document so the state can actually be inspected --
+    // on a real TV or phone there is otherwise no way to tell whether the
+    // lock is being held.
+    const mark = (state: string) => {
+      document.documentElement.dataset.wakeLock = state;
+    };
+    mark("requesting");
 
     async function acquire() {
       if (cancelled || document.visibilityState !== "visible") return;
       try {
         sentinel = await api!.request("screen");
+        mark("held");
         // The browser drops the lock whenever the page is hidden, so note
         // that it is gone rather than holding a stale handle.
         sentinel.addEventListener("release", () => {
           sentinel = null;
+          mark("released");
         });
       } catch {
         // Refused (often because the page is not visible, or not served over
         // https). Nothing to do -- the next visibility change retries.
+        mark("refused");
       }
     }
 
@@ -58,6 +72,7 @@ export function useWakeLock(active = true) {
       document.removeEventListener("visibilitychange", onVisibilityChange);
       void sentinel?.release().catch(() => {});
       sentinel = null;
+      mark("released");
     };
   }, [active]);
 }

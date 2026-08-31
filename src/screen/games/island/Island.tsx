@@ -146,6 +146,12 @@ export function Island({ send, subscribe, players, publish }: GameProps) {
       for (const player of sent.keys()) {
         sendRef.current({ type: "phone-view", view: null, to: player });
       }
+      // The cache has to record what the phone is actually holding, which is
+      // now nothing. Leaving the old entries here means a remount believes
+      // the phones already have their menus, sends nothing, and every player
+      // is left staring at a plain remote -- which is precisely what
+      // happened on the first end-to-end run.
+      sent.clear();
     };
   }, []);
 

@@ -323,7 +323,10 @@ export function addResident(island: Island, mii: Mii, owner: number): Resident |
     owner,
     level: 1,
     happiness: 0,
-    hunger: 20,
+    // Arriving peckish: the first thing anyone tries is to feed their new
+    // Mii, and starting below the satiety line meant being told they were
+    // full before they had eaten anything at all.
+    hunger: 60,
     boredom: 10,
     styleWear: 0,
     outfit: null,

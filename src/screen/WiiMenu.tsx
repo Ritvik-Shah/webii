@@ -23,7 +23,7 @@ export interface WiiMenuSnapshot {
   toast: string | null;
 }
 
-const GRID_COLS = 4;
+const GRID_COLS = 5;
 const GRID_ROWS = 3;
 
 export function WiiMenu({ subscribe, onLaunch, hostPlayer, spectating = false, snapshot, onSnapshot }: WiiMenuProps) {

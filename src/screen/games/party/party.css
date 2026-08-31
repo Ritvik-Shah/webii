@@ -1,0 +1,170 @@
+/* Shared chrome for the write-and-vote party games. The screen is the stage:
+   prompts, answers, votes and standings. Typing happens on the phones. */
+
+.party-root {
+  width: 100%;
+  height: 100dvh;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.4rem;
+  background: radial-gradient(circle at 50% 30%, #2b2050, #120d24);
+  color: #f6f2ff;
+  font-family: "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
+}
+
+.party-header {
+  display: flex;
+  align-items: baseline;
+  gap: 1rem;
+}
+
+.party-title {
+  font-size: clamp(1.3rem, 2.8vw, 2rem);
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.party-round {
+  font-size: clamp(0.75rem, 1.4vw, 1rem);
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  opacity: 0.7;
+}
+
+.party-centre {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  width: 100%;
+  max-width: min(62rem, 92vw);
+  text-align: center;
+}
+
+.party-big {
+  font-size: clamp(1.6rem, 4vw, 2.8rem);
+  font-weight: 800;
+}
+
+.party-clock {
+  font-size: clamp(3rem, 10vw, 7rem);
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: #ffd45e;
+}
+
+.party-prompt {
+  font-size: clamp(1.1rem, 2.6vw, 1.9rem);
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.party-sub {
+  font-size: clamp(0.8rem, 1.4vw, 1rem);
+  opacity: 0.75;
+}
+
+.party-duel {
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  gap: 1rem;
+  width: 100%;
+  flex-wrap: wrap;
+}
+
+.party-vs {
+  align-self: center;
+  font-weight: 800;
+  opacity: 0.6;
+}
+
+.party-answer {
+  flex: 1 1 16rem;
+  min-height: 5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 1rem 1.2rem;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 2px solid rgba(255, 255, 255, 0.18);
+  font-size: clamp(0.95rem, 1.9vw, 1.3rem);
+  font-weight: 700;
+}
+
+.party-answer.is-sweep {
+  border-color: #ffd45e;
+  background: rgba(255, 212, 94, 0.2);
+}
+
+.party-points {
+  font-size: clamp(0.8rem, 1.5vw, 1.05rem);
+  color: #ffd45e;
+  font-variant-numeric: tabular-nums;
+}
+
+.party-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 0.6rem;
+  width: 100%;
+}
+
+.party-standings {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  width: min(34rem, 90vw);
+}
+
+.party-standings li {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.35rem 0.8rem;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  font-size: clamp(0.85rem, 1.5vw, 1.05rem);
+}
+
+.party-standings li.is-leader {
+  background: rgba(255, 212, 94, 0.22);
+  font-weight: 800;
+}
+
+.party-rank {
+  min-width: 1.4rem;
+  font-weight: 800;
+  opacity: 0.6;
+}
+
+.party-who {
+  flex: 1;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.party-score {
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.party-hint {
+  font-size: clamp(0.7rem, 1.2vw, 0.9rem);
+  opacity: 0.6;
+}

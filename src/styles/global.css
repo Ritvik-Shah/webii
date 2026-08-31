@@ -244,7 +244,9 @@ a {
 .wii-grid {
   flex: 1 1 auto;
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  /* Five across to fit thirteen channels; must match GRID_COLS in
+     WiiMenu.tsx, which is what maps the pointer onto a tile. */
+  grid-template-columns: repeat(5, 1fr);
   grid-template-rows: repeat(3, 1fr);
   gap: clamp(10px, 1.6vw, 20px);
   min-height: 0;

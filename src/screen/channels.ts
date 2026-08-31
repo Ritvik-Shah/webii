@@ -15,7 +15,8 @@ export const CHANNELS: Channel[] = [
   { id: "nds-channel", title: "DS Channel", accent: "#c93bc9", status: "ready" },
   { id: "uno", title: "Uno", accent: "#d3323a", status: "ready" },
   { id: "poker", title: "Poker", accent: "#1d5b46", status: "ready" },
-  { id: "weather", title: "Forecast Channel", accent: "#3bb5d0", status: "soon" },
-  { id: "news", title: "News Channel", accent: "#c43bb0", status: "soon" },
+  { id: "quiplash", title: "Quiplash", accent: "#6b4fd6", status: "ready" },
+  { id: "fibbage", title: "Fibbage", accent: "#c43bb0", status: "ready" },
+  { id: "fakinit", title: "Fakin' It", accent: "#e07a3b", status: "ready" },
   { id: "players", title: "Player Manager", accent: "#7088a3", status: "ready" },
 ];

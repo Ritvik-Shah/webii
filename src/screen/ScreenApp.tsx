@@ -17,6 +17,9 @@ import { Tanks } from "./games/Tanks";
 import { Charge } from "./games/Charge";
 import { Uno } from "./games/uno/Uno";
 import { Poker } from "./games/poker/Poker";
+import { Quiplash } from "./games/party/Quiplash";
+import { Fibbage } from "./games/party/Fibbage";
+import { FakinIt } from "./games/party/FakinIt";
 import { NesUpload } from "./nes/NesUpload";
 import { NesGame1, NesGame2 } from "./nes/BundledGames";
 import { NdsChannel } from "./nds/NdsChannel";
@@ -34,6 +37,9 @@ const GAME_SCREENS: Record<string, ComponentType<GameProps>> = {
   charge: Charge,
   uno: Uno,
   poker: Poker,
+  quiplash: Quiplash,
+  fibbage: Fibbage,
+  fakinit: FakinIt,
   "nes-upload": NesUpload,
   "nes-1": NesGame1,
   "nes-2": NesGame2,

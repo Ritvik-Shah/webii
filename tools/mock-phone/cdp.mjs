@@ -6,7 +6,38 @@ export async function openTab(url = "about:blank") {
   const target = await (
     await fetch(`http://localhost:9222/json/new?${encodeURIComponent(url)}`, { method: "PUT" })
   ).json();
-  const ws = new WebSocket(target.webSocketDebuggerUrl);
+  return attach(target.id, target.webSocketDebuggerUrl);
+}
+
+/**
+ * A page in a window of its own.
+ *
+ * Two pages in one window are two tabs, and only the front tab renders --
+ * a hidden tab's requestAnimationFrame is suspended and its timers are
+ * throttled. That is fatal for this harness, which needs the TV drawing a
+ * canvas game *while* the phone streams motion into it. Separate windows
+ * are both live.
+ */
+export async function openWindow(url = "about:blank") {
+  const version = await (await fetch("http://localhost:9222/json/version")).json();
+  const browser = new WebSocket(version.webSocketDebuggerUrl);
+  await new Promise((r) => browser.on("open", r));
+  const targetId = await new Promise((resolve, reject) => {
+    browser.on("message", (raw) => {
+      const msg = JSON.parse(raw);
+      if (msg.id !== 1) return;
+      if (msg.error) reject(new Error(msg.error.message));
+      else resolve(msg.result.targetId);
+    });
+    browser.send(JSON.stringify({ id: 1, method: "Target.createTarget", params: { url, newWindow: true } }));
+  });
+  browser.close();
+  return attach(targetId, `ws://localhost:9222/devtools/page/${targetId}`);
+}
+
+async function attach(targetId, debuggerUrl) {
+  const target = { id: targetId };
+  const ws = new WebSocket(debuggerUrl);
   let id = 0;
   const pending = new Map();
   ws.on("message", (raw) => {
@@ -93,6 +124,13 @@ export async function openTab(url = "about:blank") {
       );
       if (box) await sleep(120);
       return box;
+    },
+    /** Makes this the visible page. A hidden tab's requestAnimationFrame is
+     * suspended, so a canvas game in a background tab does not run at all --
+     * which means the host has to be at the front to keep publishing, and
+     * the mirror has to be at the front to draw what it received. */
+    bringToFront() {
+      return send("Page.bringToFront");
     },
     async screenshot(path) {
       const shot = await send("Page.captureScreenshot", { format: "png" });

@@ -18,6 +18,7 @@ export const CHANNELS: Channel[] = [
   { id: "quiplash", title: "Quiplash", accent: "#6b4fd6", status: "ready" },
   { id: "fibbage", title: "Fibbage", accent: "#c43bb0", status: "ready" },
   { id: "fakinit", title: "Fakin' It", accent: "#e07a3b", status: "ready" },
+  { id: "fishing", title: "Fishing", accent: "#1f6e9e", status: "ready" },
   { id: "island", title: "Mii Island", accent: "#3aa1c9", status: "ready" },
   { id: "players", title: "Player Manager", accent: "#7088a3", status: "ready" },
 ];

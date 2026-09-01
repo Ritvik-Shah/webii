@@ -17,6 +17,7 @@ import type { PlayerInfo } from "./games/types";
 import { TargetPractice } from "./games/TargetPractice";
 import { Tanks } from "./games/Tanks";
 import { Charge } from "./games/Charge";
+import { Fishing } from "./games/fishing/Fishing";
 import { Uno } from "./games/uno/Uno";
 import { Poker } from "./games/poker/Poker";
 import { Quiplash } from "./games/party/Quiplash";
@@ -42,6 +43,7 @@ const GAME_SCREENS: Record<string, ComponentType<GameProps>> = {
   target: TargetPractice,
   tanks: Tanks,
   charge: Charge,
+  fishing: Fishing,
   uno: Uno,
   poker: Poker,
   quiplash: Quiplash,

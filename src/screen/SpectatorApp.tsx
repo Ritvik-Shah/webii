@@ -30,6 +30,8 @@ import {
   type UnoMirrorState,
 } from "./games/MirrorViews";
 import type { IslandSnapshot } from "./games/island/IslandView";
+import { FishingSpectator } from "./games/fishing/FishingSpectator";
+import type { FishingSnapshot } from "./games/fishing/Fishing";
 import { ChargeSpectator } from "./games/ChargeSpectator";
 import type { ChargeSnapshot } from "./games/Charge";
 import type { RangeSnapshot } from "./games/TargetPractice";
@@ -132,6 +134,10 @@ export function SpectatorApp() {
     }
     if (state) return <MiiPlaza subscribe={noSubscribe} roster={state.roster} onSelectMii={noOp} onNewMii={noOp} spectating />;
   }
+
+    if (snapshot?.view === "game:fishing") {
+      return <FishingSpectator snapshot={snapshot.state as FishingSnapshot} />;
+    }
 
     if (snapshot?.view === "game:island") {
       const base = snapshot.state as IslandSnapshot;

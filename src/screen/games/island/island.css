@@ -1,15 +1,15 @@
-/* Mii Island. Daylight, pale wood and a lot of white -- the Wii's own
-   palette rather than the dark chrome the action games use, because this
-   channel is meant to feel like somewhere you'd leave running. */
+/* Mii Island.
+   Daylight, sea and pale wood -- the Wii's own palette rather than the dark
+   chrome the action games use, because this is a channel you leave running
+   rather than one you win. */
 
 .island-root {
   position: absolute;
   inset: 0;
   display: flex;
   flex-direction: column;
-  background: linear-gradient(180deg, #bfe4f5 0%, #dff1f7 42%, #f2ead6 100%);
+  background: #bfe4f5;
   color: #23303a;
-  font-family: inherit;
   overflow: hidden;
 }
 
@@ -17,26 +17,26 @@
   display: flex;
   align-items: baseline;
   gap: 18px;
-  padding: 12px 22px;
-  background: rgba(255, 255, 255, 0.72);
+  padding: 10px 20px;
+  background: rgba(255, 255, 255, 0.82);
   border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  z-index: 5;
 }
 
 .island-title {
-  font-size: 1.4rem;
+  font-size: 1.35rem;
   font-weight: 700;
-  letter-spacing: 0.02em;
 }
 
 .island-stats {
-  font-size: 1rem;
-  color: #4a5b68;
+  font-size: 0.98rem;
+  color: #40525f;
 }
 
-.island-toast {
+.island-goal {
   margin-left: auto;
-  max-width: 46%;
-  font-size: 1rem;
+  max-width: 52%;
+  font-size: 0.95rem;
   color: #1d4f7a;
   text-align: right;
   overflow: hidden;
@@ -44,209 +44,350 @@
   white-space: nowrap;
 }
 
-.island-main {
-  flex: 1;
-  display: flex;
-  gap: 14px;
-  padding: 14px 18px;
-  min-height: 0;
-}
+/* --- the island itself --------------------------------------------------- */
 
-/* --- the board: 18 apartment doors, then the island's buildings --------- */
-
-.island-board {
-  flex: 1;
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  grid-template-rows: repeat(5, 1fr);
-  gap: 8px;
-  min-height: 0;
-}
-
-.island-room {
+.island-stage {
   position: relative;
-  border-radius: 8px;
-  border-bottom: 6px solid #c9a46f;
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12), 0 2px 4px rgba(0, 0, 0, 0.12);
+  flex: 1;
+  min-height: 0;
   overflow: hidden;
+}
+
+.island-map {
+  position: absolute;
+  inset: 0;
+  /* Leave the panel its own column, so the island is never underneath it. */
+  right: 352px;
+}
+
+.island-terrain {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.island-surf {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.55);
+  stroke-width: 0.8;
+  transform-origin: 50% 51%;
+  animation: island-surf 6s ease-in-out infinite;
+}
+
+.island-surf-2 {
+  animation-delay: 1.6s;
+  stroke-width: 0.5;
+}
+
+@keyframes island-surf {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.75;
+  }
+  50% {
+    transform: scale(1.015);
+    opacity: 0.35;
+  }
+}
+
+.island-roads ellipse {
+  fill: none;
+  stroke: #e3cf9d;
+  stroke-width: 3.2;
+  opacity: 0.85;
+}
+
+.island-roads line {
+  stroke: #e3cf9d;
+  stroke-width: 2.4;
+  opacity: 0.85;
+  stroke-linecap: round;
+}
+
+/* --- buildings ----------------------------------------------------------- */
+
+.island-building {
+  position: absolute;
+  transform: translate(-50%, -100%);
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-end;
-  padding-bottom: 4px;
+  filter: drop-shadow(0 4px 5px rgba(0, 0, 0, 0.28));
 }
 
-.island-room.is-empty {
-  background: rgba(255, 255, 255, 0.35);
-  border-bottom-color: rgba(0, 0, 0, 0.12);
+.island-building.is-hovered {
+  filter: drop-shadow(0 0 0 #fff) drop-shadow(0 4px 6px rgba(0, 0, 0, 0.35));
+}
+
+.ib-sign {
+  /* Sits above the roof; ordered rather than reordered in the markup so the
+     building reads roof-then-walls in the DOM. */
+  order: -1;
+  display: flex;
   align-items: center;
-  justify-content: center;
-  color: rgba(35, 48, 58, 0.35);
-  font-size: 0.75rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.island-room.is-hovered,
-.island-place.is-hovered {
-  outline: 3px solid #0b7cd1;
-  outline-offset: -1px;
-  transform: translateY(-2px);
-}
-
-.island-room-prop {
-  position: absolute;
-  top: 4px;
-  left: 6px;
-  font-size: 1rem;
-  opacity: 0.75;
-}
-
-.island-room-mii {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  /* The avatar is taller than it is wide, and a room is short: without the
-     headroom the hair gets sliced off by the room's own overflow. */
-  padding-top: 14px;
-}
-
-.island-room-plate {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  max-width: calc(100% - 8px);
-  /* Rooms are papered in anything from cream to midnight blue, so the name
-     carries its own background rather than trusting the wall behind it. */
-  padding: 1px 6px;
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.86);
-  color: #23303a;
-}
-
-.island-room-name {
-  font-size: 0.78rem;
+  gap: 4px;
+  margin-bottom: 3px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  font-size: 0.68rem;
   font-weight: 600;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
-.island-room-level {
-  font-size: 0.68rem;
-  color: #55636e;
-}
-
-.island-room-bar {
-  width: calc(100% - 12px);
-  height: 5px;
-  margin-top: 3px;
-  border-radius: 3px;
-  background: rgba(0, 0, 0, 0.16);
-  overflow: hidden;
-}
-
-.island-room-bar span {
-  display: block;
-  height: 100%;
-  background: #3bb54a;
-}
-
-.island-room-badges {
-  position: absolute;
-  top: 3px;
-  right: 5px;
-  display: flex;
-  gap: 2px;
+.ib-icon {
   font-size: 0.85rem;
 }
 
-.island-place {
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.82);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12);
+.ib-level {
+  color: #e0a52c;
+  letter-spacing: -1px;
+}
+
+.ib-roof {
+  width: 68px;
+  height: 16px;
+  background: var(--roof);
+  clip-path: polygon(8% 100%, 50% 0%, 92% 100%);
+}
+
+.ib-body {
+  position: relative;
+  width: 54px;
+  height: var(--h);
+  background: var(--wall);
+  border-radius: 2px 2px 3px 3px;
+  box-shadow: inset -8px 0 0 rgba(0, 0, 0, 0.07), inset 0 0 0 1px rgba(0, 0, 0, 0.12);
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 2px;
-  padding: 4px;
+  justify-content: flex-start;
+  padding-top: 7px;
+  gap: 4px;
+}
+
+.ib-windows {
+  display: grid;
+  grid-template-columns: repeat(2, 11px);
+  gap: 5px;
+}
+
+.ib-windows span {
+  height: 9px;
+  border-radius: 1px;
+  background: #8fc4e0;
+  box-shadow: inset 0 -3px 0 rgba(255, 255, 255, 0.5);
+}
+
+.ib-door {
+  position: absolute;
+  bottom: 0;
+  width: 14px;
+  height: 17px;
+  border-radius: 6px 6px 0 0;
+  background: var(--roof);
+  opacity: 0.85;
+}
+
+.island-building.is-selected .ib-body,
+.island-building.is-hovered .ib-body {
+  outline: 2px solid #0b7cd1;
+  outline-offset: 2px;
+}
+
+/* --- empty plots --------------------------------------------------------- */
+
+.island-plot {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  /* Deliberately quiet: eleven empty plots used to shout over the two
+     buildings that were actually there. */
+  width: 78px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 6px 4px;
+  border-radius: 10px;
+  border: 2px dashed rgba(255, 255, 255, 0.55);
+  background: rgba(255, 255, 255, 0.1);
   text-align: center;
 }
 
-.island-place.is-locked {
-  background: rgba(255, 255, 255, 0.4);
-  color: rgba(35, 48, 58, 0.45);
+/* Something you can actually afford right now is worth noticing. */
+.island-plot.is-ready {
+  border-color: #ffffff;
+  background: rgba(255, 255, 255, 0.42);
+  box-shadow: 0 0 0 rgba(255, 255, 255, 0.7);
+  animation: island-plot-ready 2.4s ease-out infinite;
 }
 
-.island-place-icon {
-  font-size: 1.7rem;
+@keyframes island-plot-ready {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.6);
+  }
+  70%,
+  100% {
+    box-shadow: 0 0 0 9px rgba(255, 255, 255, 0);
+  }
 }
 
-.island-place-name {
-  font-size: 0.78rem;
+.island-plot.is-blocked {
+  opacity: 0.42;
+}
+
+.island-plot.is-hovered,
+.island-plot.is-selected {
+  outline: 2px solid #0b7cd1;
+  outline-offset: 2px;
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.island-plot-mark {
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1;
+  color: #2f6b3f;
+}
+
+.island-plot-name {
+  font-size: 0.62rem;
   font-weight: 600;
 }
 
-.island-place-lock {
-  font-size: 0.62rem;
-  opacity: 0.8;
+.island-plot-cost {
+  font-size: 0.56rem;
+  color: #3c5568;
 }
 
-/* --- the panel ---------------------------------------------------------- */
+/* --- the Miis ------------------------------------------------------------ */
+
+.island-walker {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  /* Positions arrive eight times a second; the transition carries the Mii
+     the rest of the way so the walk looks continuous rather than stepped. */
+  transition: left 0.14s linear, top 0.14s linear;
+}
+
+.iw-shadow {
+  position: absolute;
+  left: 50%;
+  bottom: -3px;
+  width: 24px;
+  height: 7px;
+  margin-left: -12px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.24);
+}
+
+.iw-figure {
+  display: block;
+  position: relative;
+}
+
+/* The independent `translate` property, so the bob composes with the
+   `transform: scaleX()` that faces the Mii left or right. */
+.island-walker.is-walking .iw-figure {
+  animation: iw-bob 0.52s ease-in-out infinite;
+}
+
+@keyframes iw-bob {
+  50% {
+    translate: 0 -2.5px;
+  }
+}
+
+.iw-name {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 3px;
+  padding: 0 4px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.86);
+  font-size: 0.6rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.iw-bubble {
+  position: absolute;
+  top: -4px;
+  right: -8px;
+  font-size: 0.85rem;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.3));
+}
+
+.island-walker.is-selected .iw-figure,
+.island-walker.is-hovered .iw-figure {
+  outline: 2px solid #0b7cd1;
+  outline-offset: 3px;
+  border-radius: 8px;
+}
+
+/* --- the panel ----------------------------------------------------------- */
 
 .island-panel {
-  width: 380px;
-  flex-shrink: 0;
-  background: rgba(255, 255, 255, 0.88);
-  border-radius: 12px;
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.14);
-  overflow: hidden;
-  display: flex;
-}
-
-.island-panel-body {
-  flex: 1;
-  padding: 16px;
+  /* The host aims a pointer across this screen and the hit test asks the
+     browser what is underneath it, so the panel has to be invisible to
+     that question -- otherwise a third of the island cannot be pointed at. */
+  pointer-events: none;
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 900;
+  width: 330px;
+  max-height: calc(100% - 24px);
   overflow-y: auto;
+  padding: 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.93);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 9px;
 }
 
-.island-panel-body h2 {
+.island-panel.is-quiet {
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.island-panel h2 {
   margin: 0;
-  font-size: 1.2rem;
+  font-size: 1.12rem;
 }
 
-.island-panel-body h3 {
+.island-panel h3 {
   margin: 0;
 }
 
 .island-panel-head {
   display: flex;
-  gap: 14px;
+  gap: 12px;
   align-items: flex-start;
 }
 
 .island-panel-sub {
   margin: 2px 0 0;
-  font-size: 0.9rem;
+  font-size: 0.86rem;
   color: #4a5b68;
 }
 
 .island-panel-blurb {
-  margin: 4px 0 0;
-  font-size: 0.85rem;
+  margin: 3px 0 0;
+  font-size: 0.82rem;
   color: #62727e;
   font-style: italic;
 }
 
 .island-panel-line {
   margin: 0;
-  font-size: 0.88rem;
+  font-size: 0.85rem;
   line-height: 1.4;
 }
 
@@ -257,7 +398,7 @@
 .island-meters {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
 }
 
 .island-meter {
@@ -267,14 +408,14 @@
 }
 
 .island-meter-label {
-  width: 84px;
-  font-size: 0.78rem;
+  width: 76px;
+  font-size: 0.75rem;
   color: #4a5b68;
 }
 
 .island-meter-track {
   flex: 1;
-  height: 9px;
+  height: 8px;
   border-radius: 5px;
   background: rgba(0, 0, 0, 0.12);
   overflow: hidden;
@@ -285,7 +426,6 @@
   height: 100%;
 }
 
-.island-bond-list,
 .island-list,
 .island-feed,
 .island-news {
@@ -294,8 +434,8 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 5px;
-  font-size: 0.85rem;
+  gap: 4px;
+  font-size: 0.82rem;
 }
 
 .island-news {
@@ -303,12 +443,11 @@
   padding-left: 18px;
 }
 
-.island-bond-list li,
 .island-list li {
   display: flex;
   justify-content: space-between;
   gap: 10px;
-  padding: 5px 8px;
+  padding: 4px 7px;
   border-radius: 6px;
   background: rgba(0, 0, 0, 0.045);
 }
@@ -322,7 +461,7 @@
 }
 
 .island-feed li {
-  padding: 5px 8px;
+  padding: 4px 7px;
   border-radius: 6px;
   background: rgba(0, 0, 0, 0.045);
   border-left: 3px solid #9fb3c2;
@@ -347,68 +486,71 @@
 .island-catalogue {
   display: flex;
   flex-wrap: wrap;
-  gap: 5px;
+  gap: 4px;
 }
 
 .island-chip {
-  font-size: 0.78rem;
-  padding: 4px 8px;
+  font-size: 0.74rem;
+  padding: 3px 7px;
   border-radius: 999px;
   background: rgba(0, 0, 0, 0.06);
 }
 
 .island-chip.is-owned {
-  background: rgba(59, 181, 74, 0.18);
+  background: rgba(59, 181, 74, 0.2);
 }
 
 .island-crowd {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
 }
 
 .island-crowd-mii {
   display: flex;
   flex-direction: column;
   align-items: center;
-  font-size: 0.75rem;
-  width: 64px;
+  width: 56px;
+  font-size: 0.7rem;
   text-align: center;
 }
 
-.island-stage {
+.island-stage-card {
+  display: flex;
+  flex-direction: column;
   align-items: center;
+  gap: 6px;
   text-align: center;
 }
 
 .island-song-title {
-  font-size: 1.1rem;
+  font-size: 1.05rem;
 }
 
 .island-song-genre {
   margin: 0;
-  font-size: 0.8rem;
+  font-size: 0.76rem;
   color: #7a8894;
 }
 
 .island-song-line {
-  margin: 6px 0 0;
-  font-size: 1.05rem;
+  margin: 4px 0 0;
+  font-size: 1rem;
   color: #1d4f7a;
   line-height: 1.4;
 }
 
+/* --- the bottom bar ------------------------------------------------------ */
+
 .island-ticker {
   display: flex;
   align-items: baseline;
-  padding: 8px 22px;
-  background: rgba(255, 255, 255, 0.72);
+  padding: 7px 20px;
+  background: rgba(255, 255, 255, 0.82);
   border-top: 1px solid rgba(0, 0, 0, 0.08);
-  font-size: 0.9rem;
+  font-size: 0.86rem;
   color: #3c4b57;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  z-index: 5;
 }
 
 .island-ticker-text {
@@ -417,8 +559,6 @@
   white-space: nowrap;
 }
 
-/* Sits in the ticker row rather than floating over the board -- as an
-   overlay it landed squarely on the bottom row of buildings. */
 .island-hint {
   margin-left: auto;
   padding-left: 18px;

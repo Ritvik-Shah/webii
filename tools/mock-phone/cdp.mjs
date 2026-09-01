@@ -27,6 +27,11 @@ export async function openTab(url = "about:blank") {
       ws.send(JSON.stringify({ id: msgId, method, params }));
     });
 
+  // Otherwise a run can quietly test the previous deploy: the HTML comes
+  // from cache and pulls in the old, content-hashed bundle with it.
+  await send("Network.enable");
+  await send("Network.setCacheDisabled", { cacheDisabled: true });
+
   const tab = {
     id: target.id,
     send,

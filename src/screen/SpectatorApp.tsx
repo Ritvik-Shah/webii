@@ -44,6 +44,13 @@ const BowlingSpectator = lazy(() =>
 // tables, and only a room that is actually playing it should download them.
 const IslandMirror = lazy(() => import("./games/island/IslandView").then((m) => ({ default: m.IslandMirror })));
 
+/** Mii Island's high-rate half: where everybody is standing. */
+interface IslandWalkSnapshot {
+  walkers: IslandSnapshot["island"]["walkers"];
+  focus: IslandSnapshot["focus"];
+  toast: string | null;
+}
+
 /** What the non-game screens publish: just enough to say what's going on. */
 interface LobbySnapshot {
   players: number[];
@@ -69,6 +76,10 @@ export function SpectatorApp() {
   // Kept apart from the main snapshot: the cursor arrives far more often
   // than the view does, and must not replace it.
   const [cursors, setCursors] = useState<{ player: number; x: number; y: number }[]>([]);
+  // Mii Island publishes its walkers far more often than the island itself
+  // -- positions are a few hundred bytes, the island is sixteen kilobytes --
+  // so, like the cursor, the movement is kept apart and merged at render.
+  const [islandWalk, setIslandWalk] = useState<IslandWalkSnapshot | null>(null);
   const [presence, setPresence] = useState<PresenceMessage | null>(null);
 
   const onMessage = useCallback((msg: PresenceMessage | ScreenMessage) => {
@@ -78,6 +89,7 @@ export function SpectatorApp() {
     }
     if (isSnapshot(msg)) {
       if (msg.view === "cursor") setCursors((msg.state as { cursors: { player: number; x: number; y: number }[] }).cursors ?? []);
+      else if (msg.view === "game:island-walk") setIslandWalk(msg.state as IslandWalkSnapshot);
       else setSnapshot(msg);
     }
   }, []);
@@ -122,9 +134,18 @@ export function SpectatorApp() {
   }
 
     if (snapshot?.view === "game:island") {
+      const base = snapshot.state as IslandSnapshot;
+      const live: IslandSnapshot = islandWalk
+        ? {
+            ...base,
+            island: { ...base.island, walkers: islandWalk.walkers },
+            focus: islandWalk.focus,
+            toast: islandWalk.toast,
+          }
+        : base;
       return (
         <Suspense fallback={<div className="screen-loading">Loading the island…</div>}>
-          <IslandMirror snapshot={snapshot.state as IslandSnapshot} />
+          <IslandMirror snapshot={live} />
         </Suspense>
       );
     }

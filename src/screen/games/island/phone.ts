@@ -1,8 +1,8 @@
 import type { PhoneChoice, PhoneView } from "../../../../shared/protocol";
+import { BUILDINGS, BUILDING_BY_ID, MAX_BUILDING_LEVEL, upgradeCost } from "./map";
 import {
   FOODS,
   INTERIORS,
-  LOCATIONS,
   OUTFITS,
   TYPE_BLURBS,
   answerConfession,
@@ -13,7 +13,13 @@ import {
   dress,
   feed,
   friendshipLabel,
-  isUnlocked,
+  blockedBecause,
+  build,
+  islandLevel,
+  leisureBuildings,
+  levelOf,
+  nextGoal,
+  upgrade,
   nameOf,
   personalityFor,
   priceOf,
@@ -43,7 +49,8 @@ export type Nav =
   | { screen: "outfit"; id: string }
   | { screen: "room"; id: string }
   | { screen: "cheer"; id: string }
-  | { screen: "profile"; id: string };
+  | { screen: "profile"; id: string }
+  | { screen: "build" };
 
 export const ROOT: Nav = { screen: "root" };
 
@@ -179,15 +186,44 @@ function interiorChoices(island: Island, prefix: string): PhoneChoice[] {
   }));
 }
 
-/** Somewhere to send a bored Mii: only the places the island has unlocked. */
+/** Somewhere to send a bored Mii: only the places you have actually built. */
 function placeChoices(island: Island, prefix: string): PhoneChoice[] {
-  return LOCATIONS.filter((l) => ["park", "cafe", "beach", "amusement", "tower", "fountain"].includes(l.id))
-    .filter((l) => isUnlocked(island, l))
-    .map((l) => ({ id: `${prefix}|${l.id}`, label: `${l.icon} ${l.name}` }));
+  return leisureBuildings(island).map((b) => ({ id: `${prefix}|${b.id}`, label: `${b.icon} ${b.name}` }));
 }
 
 function placeName(id: string): string {
-  return LOCATIONS.find((l) => l.id === id)?.name ?? id;
+  return BUILDING_BY_ID.get(id)?.name ?? id;
+}
+
+/**
+ * The town, on a phone. Anything you can put up or grow, with the reason you
+ * can't in place of the price -- so the build menu doubles as the list of
+ * what the island is waiting for.
+ */
+function buildView(island: Island): PhoneView {
+  const toBuild: PhoneChoice[] = [];
+  const toGrow: PhoneChoice[] = [];
+  for (const type of BUILDINGS) {
+    const level = levelOf(island, type.id);
+    if (level === 0) {
+      const blocked = blockedBecause(island, type);
+      toBuild.push({
+        id: `do|build|${type.id}`,
+        label: `${type.icon} Build ${type.name} · ${blocked ?? `${type.cost}c`}`,
+      });
+    } else if (level < MAX_BUILDING_LEVEL) {
+      toGrow.push({
+        id: `do|grow|${type.id}`,
+        label: `${type.icon} Grow ${type.name} to ${level + 1} · ${upgradeCost(type, level)}c`,
+      });
+    }
+  }
+  return {
+    title: "Build the island",
+    subtitle: `${island.coins} coins · island level ${islandLevel(island)}`,
+    note: nextGoal(island),
+    choices: [...toBuild, ...toGrow, { id: "nav|root", label: "Back to the island" }],
+  };
 }
 
 function profileView(island: Island, resident: Resident): PhoneView {
@@ -228,6 +264,8 @@ export function phoneViewFor(island: Island, player: number, isHost: boolean, na
   if (pending.length > 0) return requestView(island, pending[0]);
 
   const mine = myResidents(island, player, isHost);
+
+  if (nav.screen === "build") return buildView(island);
 
   if (nav.screen !== "root") {
     const resident = residentById(island, nav.id);
@@ -286,17 +324,20 @@ export function phoneViewFor(island: Island, player: number, isHost: boolean, na
     return {
       title: "Mii Island",
       note: "None of the residents are yours yet. Pick a Mii on the way in and they'll move into the apartments.",
-      waiting: true,
+      choices: [{ id: "nav|build", label: "🏗️ Build the island" }],
     };
   }
 
   return {
     title: "Mii Island",
     subtitle: `${island.coins} coins · ${island.residents.length} residents · ${island.problemsSolved} problems solved`,
-    choices: mine.map((r) => ({
-      id: `nav|resident|${r.id}`,
-      label: `${r.mii.name} · Lv ${r.level} · ${happinessBar(r)}${r.hunger >= 75 ? " 🍽️" : ""}`,
-    })),
+    choices: [
+      ...mine.map((r) => ({
+        id: `nav|resident|${r.id}`,
+        label: `${r.mii.name} · Lv ${r.level} · ${happinessBar(r)}${r.hunger >= 75 ? " 🍽️" : ""}`,
+      })),
+      { id: "nav|build", label: "🏗️ Build the island" },
+    ],
   };
 }
 
@@ -362,6 +403,7 @@ export function applyPhoneAction(island: Island, nav: Nav, id: string): PhoneOut
   if (verb === "nav") {
     const [, screen, residentId] = parts;
     if (screen === "root") return { nav: ROOT };
+    if (screen === "build") return { nav: { screen: "build" } };
     if (!residentId) return { nav };
     return { nav: { screen: screen as Exclude<Nav, { screen: "root" }>["screen"], id: residentId } };
   }
@@ -372,6 +414,9 @@ export function applyPhoneAction(island: Island, nav: Nav, id: string): PhoneOut
     if (what === "outfit") return { nav, result: dress(island, residentId, value) };
     if (what === "room") return { nav, result: decorate(island, residentId, value) };
     if (what === "cheer") return { nav: { screen: "resident", id: residentId }, result: cheerUp(island, residentId, placeName(value)) };
+    // On the build screen the third part is the building, not a resident.
+    if (what === "build") return { nav, result: build(island, residentId) };
+    if (what === "grow") return { nav, result: upgrade(island, residentId) };
     return { nav };
   }
 

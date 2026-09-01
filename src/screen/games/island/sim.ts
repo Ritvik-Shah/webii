@@ -1,6 +1,15 @@
 import type { Mii } from "../../mii/Mii";
 import { BUILDS, EYEBROW_STYLES, EYE_STYLES, HAIR_STYLES, HEIGHTS, MOUTH_STYLES } from "../../mii/Mii";
 import {
+  BUILDINGS,
+  BUILDING_BY_ID,
+  MAX_BUILDING_LEVEL,
+  capacityAt,
+  upgradeCost,
+  type BuildingType,
+  type Walker,
+} from "./map";
+import {
   CATCHPHRASES,
   FOODS,
   FOOD_BY_ID,
@@ -260,6 +269,11 @@ export interface IslandEvent {
 export interface Island {
   version: number;
   coins: number;
+  /** Built structures, by building id, holding their level. A building that
+   * is not here has not been put up yet. */
+  buildings: Record<string, number>;
+  /** Where everybody is standing, by resident id. */
+  walkers: Record<string, Walker>;
   residents: Resident[];
   bonds: Bond[];
   /** Food bought ahead of time, by food id. */
@@ -274,15 +288,24 @@ export interface Island {
   nextId: number;
 }
 
-export const SAVE_VERSION = 3;
-/** The apartment block is three floors of six. The real thing holds a
- * hundred; a TV holds eighteen legibly. */
+export const SAVE_VERSION = 4;
+/** The most the apartments will ever hold, at their top level. The real
+ * thing holds a hundred; a TV holds eighteen legibly. */
 export const MAX_RESIDENTS = 18;
+
+/** How many Miis this island has room for right now. */
+export function capacity(island: Island): number {
+  return Math.min(MAX_RESIDENTS, capacityAt(island.buildings.apartments ?? 1));
+}
 
 export function createIsland(): Island {
   return {
     version: SAVE_VERSION,
     coins: 300,
+    // You start with somewhere to live and somewhere to sign the forms.
+    // Everything else is yours to build.
+    buildings: { apartments: 1, townhall: 1 },
+    walkers: {},
     residents: [],
     bonds: [],
     pantry: {},
@@ -314,7 +337,7 @@ export function nameOf(island: Island, id: string): string {
 // ---------------------------------------------------------------------------
 
 export function addResident(island: Island, mii: Mii, owner: number): Resident | null {
-  if (island.residents.length >= MAX_RESIDENTS) return null;
+  if (island.residents.length >= capacity(island)) return null;
   if (island.residents.some((r) => r.mii.id === mii.id)) return null;
 
   const resident: Resident = {
@@ -323,10 +346,11 @@ export function addResident(island: Island, mii: Mii, owner: number): Resident |
     owner,
     level: 1,
     happiness: 0,
-    // Arriving peckish: the first thing anyone tries is to feed their new
-    // Mii, and starting below the satiety line meant being told they were
-    // full before they had eaten anything at all.
-    hunger: 60,
+    // Arriving peckish, but not all equally so. Everyone starting on the
+    // same number meant the whole island got hungry within a minute of each
+    // other and the player's phone was buried in identical requests before
+    // they had looked at anything.
+    hunger: 40 + unit("appetite", mii.id) * 35,
     boredom: 10,
     styleWear: 0,
     outfit: null,
@@ -439,6 +463,7 @@ export interface ActionResult {
   message: string;
   reaction?: Reaction;
   resident?: string;
+  building?: string;
 }
 
 /** Below this much hunger a Mii will not be fed again. A meal takes 60 off,
@@ -455,7 +480,8 @@ const REDECORATE_COOLDOWN = 300;
 
 export function priceOf(island: Island, foodId: string): number {
   if ((island.pantry[foodId] ?? 0) > 0) return 0;
-  return FOOD_BY_ID.get(foodId)?.price ?? 0;
+  const base = FOOD_BY_ID.get(foodId)?.price ?? 0;
+  return Math.max(1, Math.round(base * foodDiscount(island)));
 }
 
 export function feed(island: Island, residentId: string, foodId: string): ActionResult {
@@ -468,9 +494,10 @@ export function feed(island: Island, residentId: string, foodId: string): Action
   }
 
   const stocked = (island.pantry[foodId] ?? 0) > 0;
+  const price = priceOf(island, foodId);
   if (!stocked) {
-    if (island.coins < food.price) return { ok: false, message: "Not enough coins for that." };
-    island.coins -= food.price;
+    if (island.coins < price) return { ok: false, message: "Not enough coins for that." };
+    island.coins -= price;
   } else {
     island.pantry[foodId] -= 1;
     if (island.pantry[foodId] <= 0) delete island.pantry[foodId];
@@ -768,8 +795,32 @@ const HUNGER_RATE = 16;
 const BOREDOM_RATE = 9;
 const STYLE_RATE = 5;
 
+/**
+ * How long a Mii will keep asking before giving up on it.
+ *
+ * Without this the island can deadlock: a Mii asks for clothes you cannot
+ * afford, answering fails, and the request sits at the front of every
+ * phone's queue forever -- deferring only sends it to the back and it comes
+ * straight round again. Level-ups are exempt: choosing a present costs
+ * nothing, so it can always be resolved and is worth keeping.
+ */
+const REQUEST_PATIENCE = 180;
+
 export function tickNeeds(island: Island, seconds: number) {
   island.clock += seconds;
+
+  for (const request of island.requests) {
+    if (request.kind === "levelup") continue;
+    if (island.clock - request.at < REQUEST_PATIENCE) continue;
+    const resident = residentById(island, request.resident);
+    if (resident) {
+      resident.mood = "sad";
+      addHappiness(island, resident, -5);
+      logEvent(island, "solo", `${resident.mii.name} gave up waiting and sorted themselves out.`, [resident.id]);
+    }
+    island.requests = island.requests.filter((r) => r.id !== request.id);
+  }
+
   const minutes = seconds / 60;
   for (const resident of island.residents) {
     resident.hunger = Math.min(140, resident.hunger + HUNGER_RATE * minutes);
@@ -779,7 +830,12 @@ export function tickNeeds(island: Island, seconds: number) {
     if (resident.hunger >= 75) {
       raise(island, { kind: "hungry", resident: resident.id, text: `${resident.mii.name} is hungry.` });
     }
-    if (resident.boredom >= 85) {
+    // Only ask if there is somewhere to send them. An island with nothing
+    // built has no answer to "I'm bored", and the request then sat at the
+    // front of the queue forever -- deferring it just brought it straight
+    // back round. What a bored Mii means on an empty island is that you
+    // should go and build something, and `nextGoal` says so.
+    if (resident.boredom >= 85 && leisureBuildings(island).length > 0) {
       raise(island, { kind: "bored", resident: resident.id, text: `${resident.mii.name} is bored senseless.` });
     }
     if (resident.styleWear >= 95) {
@@ -793,30 +849,23 @@ export function tickNeeds(island: Island, seconds: number) {
   }
 }
 
-/** One social beat: two residents run into each other, or somebody potters
- * about on their own. Called every few seconds by the screen. */
-export function socialTick(island: Island, roll = Math.random()): IslandEvent | null {
-  const residents = island.residents;
-  if (residents.length === 0) return null;
-
-  if (residents.length === 1 || roll < 0.25) {
-    const solo = residents[Math.floor(unit("solo", island.clock, roll) * residents.length) % residents.length];
-    const text = fill(pick(SOLO_SCENES, unit("scene", solo.id, island.clock)), solo.mii.name);
-    logEvent(island, "solo", text, [solo.id]);
-    addHappiness(island, solo, 2);
-    return island.events[0];
-  }
-
-  const i = Math.floor(unit("pairA", island.clock, roll) * residents.length) % residents.length;
-  let j = Math.floor(unit("pairB", island.clock, roll) * residents.length) % residents.length;
-  if (j === i) j = (j + 1) % residents.length;
-  const a = residents[i];
-  const b = residents[j];
+/**
+ * Two Miis have ended up standing next to each other. Whatever happens
+ * between them happens here.
+ *
+ * They used to be drawn out of a hat. Now the walking simulation decides
+ * who is near whom, so the friendships that form are the ones you can watch
+ * forming -- which is the whole point of putting them on a map.
+ */
+export function meet(island: Island, aId: string, bId: string, roll = Math.random()): IslandEvent | null {
+  const a = residentById(island, aId);
+  const b = residentById(island, bId);
+  if (!a || !b || a.id === b.id) return null;
   const bond = bondBetween(island, a.id, b.id);
   if (!bond) return null;
 
   const fit = compatibility(a, b);
-  const seed = unit("beat", a.id, b.id, island.clock);
+  const seed = unit("beat", a.id, b.id, Math.floor(island.clock)) * 0.7 + roll * 0.3;
 
   // A bad match, left to its own devices, eventually goes wrong.
   if (!bond.quarrel && bond.status !== "married" && seed > 0.88 && fit < 0.5) {
@@ -835,10 +884,8 @@ export function socialTick(island: Island, roll = Math.random()): IslandEvent | 
     return island.events[0];
   }
 
-  if (bond.quarrel) {
-    // Nothing good happens while they're at war.
-    return null;
-  }
+  // Nothing good happens while they're at war.
+  if (bond.quarrel) return null;
 
   bond.friendship = Math.min(100, bond.friendship + fit * 6);
   addHappiness(island, a, 2);
@@ -859,8 +906,7 @@ export function socialTick(island: Island, roll = Math.random()): IslandEvent | 
         text: `${a.mii.name} has feelings for ${b.mii.name} and doesn't know what to do.`,
       });
     }
-    const text = fill(pick(ROMANTIC_SCENES, seed), a.mii.name, b.mii.name);
-    logEvent(island, "romance", text, [a.id, b.id]);
+    logEvent(island, "romance", fill(pick(ROMANTIC_SCENES, seed), a.mii.name, b.mii.name), [a.id, b.id]);
     return island.events[0];
   }
 
@@ -874,17 +920,26 @@ export function socialTick(island: Island, roll = Math.random()): IslandEvent | 
         text: `${a.mii.name} wants to propose to ${b.mii.name}.`,
       });
     }
-    const text = fill(pick(ROMANTIC_SCENES, seed), a.mii.name, b.mii.name);
-    logEvent(island, "romance", text, [a.id, b.id]);
+    logEvent(island, "romance", fill(pick(ROMANTIC_SCENES, seed), a.mii.name, b.mii.name), [a.id, b.id]);
     return island.events[0];
   }
 
-  if (bond.status === "married" && island.residents.length < MAX_RESIDENTS && seed > 0.93) {
+  if (bond.status === "married" && island.residents.length < capacity(island) && seed > 0.93) {
     if (bearChild(island, a, b)) return island.events[0];
   }
 
-  const text = fill(pick(FRIENDLY_SCENES, seed), a.mii.name, b.mii.name);
-  logEvent(island, "friendly", text, [a.id, b.id]);
+  logEvent(island, "friendly", fill(pick(FRIENDLY_SCENES, seed), a.mii.name, b.mii.name), [a.id, b.id]);
+  return island.events[0];
+}
+
+/** Somebody pottering about on their own. The island does this on a slow
+ * timer so it still has something to say when everyone is spread out. */
+export function soloBeat(island: Island, roll = Math.random()): IslandEvent | null {
+  if (island.residents.length === 0) return null;
+  const index = Math.floor(unit("solo", Math.floor(island.clock), roll) * island.residents.length);
+  const solo = island.residents[index % island.residents.length];
+  logEvent(island, "solo", fill(pick(SOLO_SCENES, unit("scene", solo.id, Math.floor(island.clock))), solo.mii.name), [solo.id]);
+  addHappiness(island, solo, 2);
   return island.events[0];
 }
 
@@ -909,7 +964,7 @@ export function blendMii(a: Mii, b: Mii, id: string, name: string): Mii {
 }
 
 export function bearChild(island: Island, a: Resident, b: Resident): Resident | null {
-  if (island.residents.length >= MAX_RESIDENTS) return null;
+  if (island.residents.length >= capacity(island)) return null;
   const id = `k${island.nextId + 1}`;
   const syllables = ["Mi", "Ko", "Ta", "Nu", "Rei", "Sa", "Bo", "Lu"];
   const name =
@@ -934,48 +989,116 @@ export function bearChild(island: Island, a: Resident, b: Resident): Resident | 
 // The island itself
 // ---------------------------------------------------------------------------
 
-export interface Location {
-  id: string;
-  name: string;
-  icon: string;
-  blurb: string;
-  /** Unlock conditions; all listed must be met. */
-  needsResidents?: number;
-  needsProblems?: number;
-  needsLevel?: number;
+/**
+ * Putting the town up.
+ *
+ * The old island unlocked its buildings on milestones, which meant the
+ * player watched them appear rather than deciding anything. Now every
+ * building is bought and can be grown, so the coins a grateful Mii hands
+ * you have somewhere to go and the island has a direction: a scruffy pair
+ * of buildings on an empty field, turned into a town.
+ */
+
+export function levelOf(island: Island, buildingId: string): number {
+  return island.buildings[buildingId] ?? 0;
 }
 
-export const LOCATIONS: Location[] = [
-  { id: "townhall", name: "Town Hall", icon: "🏛️", blurb: "Move a Mii in, or move one out." },
-  { id: "foodmart", name: "Food Mart", icon: "🛒", blurb: "Stock the pantry." },
-  { id: "clothing", name: "Clothing Shop", icon: "👕", blurb: "Something new to wear.", needsResidents: 2 },
-  { id: "interior", name: "Interior Shop", icon: "🛋️", blurb: "Wallpaper, mostly.", needsProblems: 5 },
-  { id: "park", name: "The Park", icon: "🌳", blurb: "Where everyone ends up.", needsResidents: 3 },
-  { id: "tower", name: "Observation Tower", icon: "🗼", blurb: "See who gets on with whom.", needsResidents: 4 },
-  { id: "cafe", name: "Café", icon: "☕", blurb: "Two Miis, one small table.", needsProblems: 8 },
-  { id: "concert", name: "Concert Hall", icon: "🎤", blurb: "A Mii sings the song you taught them.", needsLevel: 3 },
-  { id: "news", name: "Mii News", icon: "📰", blurb: "What happened while you were out.", needsProblems: 10 },
-  { id: "fountain", name: "Wishing Fountain", icon: "⛲", blurb: "Throw a coin. Hear a wish.", needsProblems: 14 },
-  { id: "beach", name: "The Beach", icon: "🏖️", blurb: "Nothing to do, done well.", needsResidents: 6 },
-  { id: "amusement", name: "Amusement Park", icon: "🎡", blurb: "Lucky bags, and no refunds.", needsProblems: 12 },
-];
-
-export function isUnlocked(island: Island, location: Location): boolean {
-  if (location.needsResidents && island.residents.length < location.needsResidents) return false;
-  if (location.needsProblems && island.problemsSolved < location.needsProblems) return false;
-  if (location.needsLevel && !island.residents.some((r) => r.level >= location.needsLevel!)) return false;
-  return true;
+export function isBuilt(island: Island, buildingId: string): boolean {
+  return levelOf(island, buildingId) > 0;
 }
 
-export function unlockHint(island: Island, location: Location): string {
-  if (location.needsResidents && island.residents.length < location.needsResidents) {
-    return `Needs ${location.needsResidents} residents`;
+/** Everything standing, tallest thing first so the town draws back to front. */
+export function builtBuildings(island: Island): BuildingType[] {
+  return BUILDINGS.filter((b) => isBuilt(island, b.id));
+}
+
+export function leisureBuildings(island: Island): BuildingType[] {
+  return builtBuildings(island).filter((b) => b.leisure);
+}
+
+/** The island's own level: everything you have put up, added together. It
+ * is the score, and the thing the town-hall panel is really about. */
+export function islandLevel(island: Island): number {
+  return Object.values(island.buildings).reduce((total, level) => total + level, 0);
+}
+
+/** Why you can't build this yet, or null if you can. Money is checked last
+ * so the message is about the interesting reason first. */
+export function blockedBecause(island: Island, type: BuildingType): string | null {
+  if (isBuilt(island, type.id)) return "Already built.";
+  if (type.needsResidents && island.residents.length < type.needsResidents) {
+    return `Needs ${type.needsResidents} residents`;
   }
-  if (location.needsProblems && island.problemsSolved < location.needsProblems) {
-    return `Needs ${location.needsProblems} problems solved`;
+  if (type.needsBuilding && !isBuilt(island, type.needsBuilding)) {
+    const name = BUILDING_BY_ID.get(type.needsBuilding)?.name ?? type.needsBuilding;
+    // Some of them are called "The Park", so the article is already there.
+    return `Needs ${/^The /.test(name) ? name : `the ${name}`}`;
   }
-  if (location.needsLevel) return `Needs a Mii at level ${location.needsLevel}`;
-  return "";
+  if (type.needsLevel && !island.residents.some((r) => r.level >= type.needsLevel!)) {
+    return `Needs a Mii at level ${type.needsLevel}`;
+  }
+  if (island.coins < type.cost) return `Needs ${type.cost} coins`;
+  return null;
+}
+
+export function build(island: Island, buildingId: string): ActionResult {
+  const type = BUILDING_BY_ID.get(buildingId);
+  if (!type) return { ok: false, message: "No such building." };
+  const blocked = blockedBecause(island, type);
+  if (blocked) return { ok: false, message: blocked };
+
+  island.coins -= type.cost;
+  island.buildings[type.id] = 1;
+  logEvent(island, "milestone", `The ${type.name} opened!`, []);
+  // A new place to go cheers everybody up.
+  for (const resident of island.residents) addHappiness(island, resident, 6);
+  return { ok: true, message: `${type.name} built.`, building: type.id };
+}
+
+export function upgrade(island: Island, buildingId: string): ActionResult {
+  const type = BUILDING_BY_ID.get(buildingId);
+  if (!type) return { ok: false, message: "No such building." };
+  const level = levelOf(island, type.id);
+  if (level === 0) return { ok: false, message: "It isn't built yet." };
+  if (level >= MAX_BUILDING_LEVEL) return { ok: false, message: `The ${type.name} is as big as it gets.` };
+  const cost = upgradeCost(type, level);
+  if (island.coins < cost) return { ok: false, message: `Needs ${cost} coins` };
+
+  island.coins -= cost;
+  island.buildings[type.id] = level + 1;
+  logEvent(island, "milestone", `The ${type.name} grew to level ${level + 1}.`, []);
+  for (const resident of island.residents) addHappiness(island, resident, 4);
+  return { ok: true, message: `${type.name} is now level ${level + 1}.`, building: type.id };
+}
+
+/** What the island would most like you to do next, for the goal line at the
+ * top of the screen. */
+export function nextGoal(island: Island): string {
+  // A Mii with nothing to do is the island asking you for a building.
+  const restless = island.residents.find((r) => r.boredom >= 80);
+  if (restless && leisureBuildings(island).length === 0) {
+    const park = BUILDING_BY_ID.get("park")!;
+    return `${restless.mii.name} has nowhere to go — build ${park.name} (${park.cost} coins)`;
+  }
+  if (island.residents.length >= capacity(island)) {
+    return `The apartments are full — upgrade them for ${upgradeCost(BUILDING_BY_ID.get("apartments")!, levelOf(island, "apartments"))} coins`;
+  }
+  const affordable = BUILDINGS.filter((b) => !isBuilt(island, b.id) && blockedBecause(island, b) === null);
+  if (affordable.length > 0) return `You can afford the ${affordable[0].name} (${affordable[0].cost} coins)`;
+  const next = BUILDINGS.filter((b) => !isBuilt(island, b.id)).sort((a, b) => a.cost - b.cost)[0];
+  if (next) {
+    const why = blockedBecause(island, next);
+    return `Next: the ${next.name} — ${why}`;
+  }
+  const growable = BUILDINGS.filter((b) => isBuilt(island, b.id) && levelOf(island, b.id) < MAX_BUILDING_LEVEL);
+  if (growable.length > 0) return `Everything is built — grow the ${growable[0].name}`;
+  return "The island is finished. Look at it.";
+}
+
+/** Food is cheaper as the Food Mart grows -- the first thing an upgrade is
+ * actually worth. */
+export function foodDiscount(island: Island): number {
+  return 1 - 0.12 * Math.max(0, levelOf(island, "foodmart") - 1);
 }
 
 /** A headline for the news channel: real events first, filler if the island

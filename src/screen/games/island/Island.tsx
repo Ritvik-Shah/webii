@@ -1,51 +1,60 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import type { ControllerMessage } from "../../../../shared/protocol";
 import { Cursor } from "../../Cursor";
-import { usePointerGrid } from "../../usePointerGrid";
+import { usePointerPosition } from "../../usePointerGrid";
 import { MII_ROSTER } from "../../mii/Mii";
 import type { GameProps } from "../types";
 import { SONGS } from "./content";
-import { IslandView, ROOM_CELLS, type Activity, type Focus, type IslandSnapshot } from "./IslandView";
+import { BUILDING_BY_PLOT } from "./map";
+import { IslandView, type Activity, type Focus, type IslandSnapshot } from "./IslandView";
 import { ROOT, applyPhoneAction, phoneViewFor, type Nav } from "./phone";
 import { loadIsland, saveIsland } from "./storage";
+import { stepWalkers, syncWalkers } from "./walk";
 import {
   FOODS,
-  LOCATIONS,
   OUTFITS,
   addResident,
-  isUnlocked,
+  build,
+  isBuilt,
   logEvent,
   makeWish,
+  meet,
   residentById,
-  socialTick,
+  soloBeat,
   tickNeeds,
+  upgrade,
   type Island as IslandState,
 } from "./sim";
 
 // Mii Island: our Tomodachi Life.
 //
 // The split is the one the 3DS had, and it maps onto this room unusually
-// well. The TV is the top screen -- the apartments, the island, whatever is
-// happening right now -- and each phone is the bottom screen, where you look
-// after your own Miis and answer the things they ask you. Nobody controls a
-// Mii; you feed them, dress them, and then find out what they decided to do
-// about each other.
+// well. The TV is the top screen -- the island itself, the Miis walking
+// around it, the town you are building -- and each phone is the bottom
+// screen, where you look after your own Miis and answer the things they
+// ask. Nobody controls a Mii; you feed them, dress them, put up the shops
+// they walk to, and then find out what they decided about each other.
 //
-// Everything that decides anything lives in sim.ts and phone.ts, which are
-// plain modules with no React in them, so the rules can be stepped and
-// asserted on outside a browser.
+// Everything that decides anything lives in sim.ts, walk.ts and phone.ts,
+// which have no React in them and can be stepped outside a browser.
 
-/** Real seconds between simulation ticks. */
-const TICK_MS = 1000;
-/** ...and between social beats, so scenes don't blur past. */
-const BEAT_TICKS = 6;
-const SAVE_TICKS = 10;
+/** The simulation runs at this rate, and so do the walkers -- fast enough
+ * that walking looks like walking; the CSS transition carries the rest. */
+const TICK_HZ = 8;
+const TICK_MS = 1000 / TICK_HZ;
+/** Somebody potters about on their own roughly this often, so the island
+ * still has something to say when everyone is spread out. */
+const SOLO_EVERY = 22 * TICK_HZ;
+const SAVE_EVERY = 10 * TICK_HZ;
+/** Full island snapshots are fat (every Mii, every bond); walker positions
+ * are tiny. So a mirror gets the island once a second and the movement at
+ * the full rate. */
+const FULL_SNAPSHOT_EVERY = TICK_HZ;
 const TOAST_MS = 6000;
-/** How long each line of a song stays on the screen. */
 const SONG_LINE_MS = 2600;
 const LUCKY_BAG_COST = 30;
 
-export function Island({ send, subscribe, players, publish }: GameProps) {
+export function Island({ send, subscribe, players, publish, spectators }: GameProps) {
   // The island is held in a ref rather than state: phone taps have to read
   // and write the current island synchronously (a tap resolves a request,
   // which may level a Mii, which raises the next request), and a queue of
@@ -59,11 +68,17 @@ export function Island({ send, subscribe, players, publish }: GameProps) {
   const [activity, setActivity] = useState<Activity>({ kind: "none" });
   const [toast, setToast] = useState<string | null>(null);
   const [navs, setNavs] = useState<Record<number, Nav>>({});
+  const [hover, setHover] = useState<{ plot: string | null; resident: string | null }>({
+    plot: null,
+    resident: null,
+  });
 
   const sendRef = useRef(send);
   sendRef.current = send;
   const publishRef = useRef(publish);
   publishRef.current = publish;
+  const spectatorsRef = useRef(spectators);
+  spectatorsRef.current = spectators;
   const navsRef = useRef(navs);
   navsRef.current = navs;
   const playersRef = useRef(players);
@@ -74,10 +89,15 @@ export function Island({ send, subscribe, players, publish }: GameProps) {
   activityRef.current = activity;
   const toastRef = useRef(toast);
   toastRef.current = toast;
+  const hoverRef = useRef(hover);
+  hoverRef.current = hover;
   const lastSent = useRef(new Map<number, string>());
   const toastTimer = useRef(0);
+  const stageRef = useRef<HTMLDivElement | null>(null);
+  const cursorRef = useRef<HTMLDivElement | null>(null);
 
   const hostPlayer = players[0]?.player;
+  const pointer = usePointerPosition(subscribe, hostPlayer);
 
   const say = useCallback((text: string) => {
     setToast(text);
@@ -91,26 +111,45 @@ export function Island({ send, subscribe, players, publish }: GameProps) {
   useEffect(() => {
     const island = islandRef.current!;
     for (const info of players) addResident(island, info.mii, info.player);
-    // A single Mii alone in a block of flats has nobody to fall out with, so
-    // the island keeps a few neighbours of its own.
+    // A single Mii alone on an island has nobody to fall out with, so the
+    // island keeps a few neighbours of its own.
     for (const mii of MII_ROSTER) {
       if (island.residents.length >= 4) break;
       addResident(island, mii, 0);
     }
+    syncWalkers(island);
     bump();
   }, [players]);
 
   // -----------------------------------------------------------------------
-  // The clock
+  // The clock: needs, walking, and who bumped into whom
   // -----------------------------------------------------------------------
   useEffect(() => {
     let ticks = 0;
     const timer = window.setInterval(() => {
       const island = islandRef.current!;
       ticks += 1;
-      tickNeeds(island, TICK_MS / 1000);
-      if (ticks % BEAT_TICKS === 0) socialTick(island, Math.random());
-      if (ticks % SAVE_TICKS === 0) saveIsland(island);
+      tickNeeds(island, 1 / TICK_HZ);
+
+      for (const meeting of stepWalkers(island, 1 / TICK_HZ)) {
+        meet(island, meeting.a, meeting.b);
+      }
+      if (ticks % SOLO_EVERY === 0) soloBeat(island);
+      if (ticks % SAVE_EVERY === 0) saveIsland(island);
+
+      if (spectatorsRef.current > 0) {
+        if (ticks % FULL_SNAPSHOT_EVERY === 0) {
+          publishRef.current(snapshotOf(island, focusRef.current, activityRef.current, toastRef.current));
+        } else {
+          // Just the movement, which is a few hundred bytes rather than
+          // sixteen kilobytes.
+          sendRef.current({
+            type: "snapshot",
+            view: "game:island-walk",
+            state: { walkers: island.walkers, focus: focusRef.current, toast: toastRef.current },
+          });
+        }
+      }
       bump();
     }, TICK_MS);
     return () => {
@@ -118,6 +157,34 @@ export function Island({ send, subscribe, players, publish }: GameProps) {
       saveIsland(islandRef.current!);
     };
   }, []);
+
+  // -----------------------------------------------------------------------
+  // Pointing at things
+  //
+  // Hit-testing goes through the rendered page rather than the map's own
+  // coordinates: the Miis move, the buildings are all different sizes, and
+  // asking the browser what is under the pointer is both simpler and always
+  // agrees with what is actually on the screen.
+  // -----------------------------------------------------------------------
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      if (!stageRef.current) return;
+      const px = (pointer.current.x / 100) * window.innerWidth;
+      const py = (pointer.current.y / 100) * window.innerHeight;
+      const el = cursorRef.current;
+      if (el) {
+        el.style.left = `${pointer.current.x}%`;
+        el.style.top = `${pointer.current.y}%`;
+      }
+
+      const under = document.elementFromPoint(px, py);
+      const walker = under?.closest?.("[data-walker]")?.getAttribute("data-walker") ?? null;
+      const plot = under?.closest?.("[data-plot]")?.getAttribute("data-plot") ?? null;
+      const current = hoverRef.current;
+      if (current.plot !== plot || current.resident !== walker) setHover({ plot, resident: walker });
+    }, 100);
+    return () => window.clearInterval(timer);
+  }, [pointer]);
 
   // -----------------------------------------------------------------------
   // Phones
@@ -148,9 +215,7 @@ export function Island({ send, subscribe, players, publish }: GameProps) {
       }
       // The cache has to record what the phone is actually holding, which is
       // now nothing. Leaving the old entries here means a remount believes
-      // the phones already have their menus, sends nothing, and every player
-      // is left staring at a plain remote -- which is precisely what
-      // happened on the first end-to-end run.
+      // the phones already have their menus and sends nothing.
       sent.clear();
     };
   }, []);
@@ -163,9 +228,11 @@ export function Island({ send, subscribe, players, publish }: GameProps) {
       setNavs((current) => ({ ...current, [player]: outcome.nav }));
       if (outcome.result) {
         say(outcome.result.message);
-        // Look in on whoever was just fussed over.
         if (outcome.result.ok && outcome.result.resident) {
           setFocus({ kind: "resident", id: outcome.result.resident });
+        }
+        if (outcome.result.ok && outcome.result.building) {
+          setFocus({ kind: "building", id: outcome.result.building });
         }
       }
       bump();
@@ -173,39 +240,29 @@ export function Island({ send, subscribe, players, publish }: GameProps) {
     [say],
   );
 
-  useEffect(() => {
-    return subscribe((msg: ControllerMessage, player: number) => {
-      if (msg.type === "action") handleAction(player, msg.id);
-    });
-  }, [subscribe, handleAction]);
-
   // -----------------------------------------------------------------------
-  // The host's pointer
+  // The host's remote
   // -----------------------------------------------------------------------
   const visit = useCallback(
-    (locationId: string) => {
+    (buildingId: string) => {
       const island = islandRef.current!;
-      const location = LOCATIONS.find((l) => l.id === locationId);
-      if (!location || !isUnlocked(island, location)) return;
+      if (!isBuilt(island, buildingId)) return;
 
-      if (locationId === "fountain") {
+      if (buildingId === "fountain") {
         const text = makeWish(island);
         setActivity({ kind: "note", text });
         say(text);
-        bump();
         return;
       }
 
-      if (locationId === "amusement") {
+      if (buildingId === "amusement") {
         if (island.coins < LUCKY_BAG_COST) {
           say("Not enough coins for a lucky bag.");
           return;
         }
         island.coins -= LUCKY_BAG_COST;
-        // Half the time a bag is food, half the time it's something to wear.
-        const roll = Math.random();
         let text: string;
-        if (roll < 0.5) {
+        if (Math.random() < 0.5) {
           const food = FOODS[Math.floor(Math.random() * FOODS.length)];
           island.pantry[food.id] = (island.pantry[food.id] ?? 0) + 2;
           text = `Lucky bag: two of ${food.name}.`;
@@ -222,11 +279,10 @@ export function Island({ send, subscribe, players, publish }: GameProps) {
         logEvent(island, "news", text, []);
         setActivity({ kind: "note", text });
         say(text);
-        bump();
         return;
       }
 
-      if (locationId === "concert") {
+      if (buildingId === "concert") {
         const ready = island.residents.filter((r) => r.songs.length > 0);
         if (ready.length === 0) {
           say("Nobody knows a song yet — give one as a level-up present.");
@@ -235,8 +291,7 @@ export function Island({ send, subscribe, players, publish }: GameProps) {
         const singer = ready[Math.floor(Math.random() * ready.length)];
         const songId = singer.songs[Math.floor(Math.random() * singer.songs.length)];
         setActivity({ kind: "song", resident: singer.id, song: songId, line: 0 });
-        const song = SONGS.find((s) => s.id === songId);
-        say(`${singer.mii.name} takes the stage: “${song?.title ?? "a song"}”`);
+        say(`${singer.mii.name} takes the stage: “${SONGS.find((s) => s.id === songId)?.title ?? "a song"}”`);
         return;
       }
 
@@ -245,24 +300,61 @@ export function Island({ send, subscribe, players, publish }: GameProps) {
     [say],
   );
 
-  const handleSelect = useCallback(
-    (index: number) => {
+  const press = useCallback(
+    (button: string) => {
       const island = islandRef.current!;
-      if (index < ROOM_CELLS) {
-        const resident = island.residents[index];
-        setFocus(resident ? { kind: "resident", id: resident.id } : { kind: "none" });
-        setActivity({ kind: "none" });
+      const { plot, resident } = hoverRef.current;
+
+      if (button === "A") {
+        if (resident) {
+          setFocus({ kind: "resident", id: resident });
+          setActivity({ kind: "none" });
+          bump();
+          return;
+        }
+        if (!plot) return;
+        const type = BUILDING_BY_PLOT.get(plot);
+        if (!type) return;
+        if (!isBuilt(island, type.id)) {
+          const result = build(island, type.id);
+          say(result.message);
+          setFocus({ kind: "plot", id: plot });
+          bump();
+          return;
+        }
+        setFocus({ kind: "building", id: type.id });
+        visit(type.id);
+        bump();
         return;
       }
-      const location = LOCATIONS[index - ROOM_CELLS];
-      if (!location) return;
-      setFocus({ kind: "location", id: location.id });
-      visit(location.id);
+
+      if (button === "ONE") {
+        // Growing the town: 1 upgrades whatever is under the pointer, or
+        // whatever is selected if the pointer has wandered off into the sea.
+        const target =
+          (plot ? BUILDING_BY_PLOT.get(plot)?.id : undefined) ??
+          (focusRef.current.kind === "building" ? focusRef.current.id : null);
+        if (!target) return;
+        const result = upgrade(island, target);
+        say(result.message);
+        if (result.ok) setFocus({ kind: "building", id: target });
+        bump();
+      }
     },
-    [visit],
+    [say, visit],
   );
 
-  const { cursorRef, gridRef, hoveredIndex } = usePointerGrid(subscribe, 6, 5, handleSelect, hostPlayer);
+  useEffect(() => {
+    return subscribe((msg: ControllerMessage, player: number) => {
+      if (msg.type === "action") {
+        handleAction(player, msg.id);
+        return;
+      }
+      if (msg.type === "button" && msg.state === "down" && player === playersRef.current[0]?.player) {
+        press(msg.button);
+      }
+    });
+  }, [subscribe, handleAction, press]);
 
   // A song plays itself out a line at a time, then the singer gets the
   // applause.
@@ -289,26 +381,26 @@ export function Island({ send, subscribe, players, publish }: GameProps) {
     return () => window.clearTimeout(timer);
   }, [activity]);
 
-  // -----------------------------------------------------------------------
-  // Spectators
-  // -----------------------------------------------------------------------
-  useEffect(() => {
-    const timer = window.setInterval(() => {
-      publishRef.current(snapshotOf(islandRef.current!, focusRef.current, activityRef.current, toastRef.current));
-    }, TICK_MS);
-    return () => window.clearInterval(timer);
-  }, []);
-
   const island = islandRef.current!;
   const snapshot: IslandSnapshot = { kind: "island", island, focus, activity, toast };
+  const hoveredType = hover.plot ? BUILDING_BY_PLOT.get(hover.plot) : undefined;
 
   return (
     <div className="island-root">
       <IslandView
         snapshot={snapshot}
-        hoveredIndex={hoveredIndex}
-        boardRef={gridRef}
-        hint={`Player ${hostPlayer ?? 1}: point and press A · everything else is on your phone · HOME to leave`}
+        stageRef={stageRef}
+        hoveredBuilding={hover.plot}
+        hoveredResident={hover.resident}
+        hint={
+          hover.resident
+            ? "A to look in on them"
+            : hoveredType
+              ? isBuilt(island, hoveredType.id)
+                ? `A to visit the ${hoveredType.name} · 1 to grow it`
+                : `A to build the ${hoveredType.name}`
+              : `Player ${hostPlayer ?? 1}: point and press A · the rest is on your phone`
+        }
       />
       <Cursor ref={cursorRef} />
     </div>
@@ -317,7 +409,7 @@ export function Island({ send, subscribe, players, publish }: GameProps) {
 
 /**
  * A slimmed island for the watch screen. Bonds nobody has formed yet are the
- * bulk of the state once the block fills up, and they say nothing, so they
+ * bulk of the state once the island fills up, and they say nothing, so they
  * are left out.
  */
 function snapshotOf(island: IslandState, focus: Focus, activity: Activity, toast: string | null): IslandSnapshot {

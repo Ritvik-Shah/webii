@@ -31,12 +31,17 @@ chrome --headless=new --disable-gpu --remote-debugging-port=9222 \
   --user-data-dir=/tmp/mock-phone about:blank
 ```
 
-Then point it at a deployment:
+Then point a harness at a deployment:
 
 ```sh
-node tools/mock-phone/island.mjs https://webii.ritvikshah.workers.dev
-SHOTS=1 node tools/mock-phone/island.mjs   # also writes screenshots
+node tools/mock-phone/island.mjs  https://webii.ritvikshah.workers.dev
+node tools/mock-phone/fishing.mjs https://webii.ritvikshah.workers.dev
+SHOTS=1 node tools/mock-phone/fishing.mjs   # also writes screenshots
 ```
+
+`phone.mjs` is the phone itself, shared by both. `island.mjs` covers a
+menu-and-taps channel; `fishing.mjs` covers a motion one, and plays a fish
+all the way from the cast to the net.
 
 It defaults to `http://localhost:5173`. Production is the better target: the
 local dev runtime wedges after a few runs of opening and dropping websockets,
@@ -58,3 +63,17 @@ and it is where the room bugs actually show up.
 - **Close every tab when you finish.** A TV left running keeps its clock
   ticking and keeps saving its state over the fresh one the next run just
   cleared.
+- **The TV and the phone need separate windows.** Two pages in one window
+  are two tabs, and a background tab's `requestAnimationFrame` is
+  suspended -- so a canvas game in one never ticks at all, while the phone
+  still has to be streaming motion into it. `openWindow` rather than
+  `openTab`.
+- **Hold a fake flick, don't pulse it.** Acceleration cannot be overridden
+  over CDP, so a `devicemotion` event is dispatched into the page. The
+  controller samples on its own timer, and a single spike dispatched
+  between two samples is a flick nobody sees. Hold the peak for a few
+  hundred milliseconds.
+- **"Settling" after a flick means 9.81, not 0.** The games measure how far
+  a reading is *from* gravity. A phone at rest reads 9.81 and therefore
+  zero movement; settling to 0 reads as another 9.8 of throw, which leaves
+  the flick detector permanently un-armed after the first cast.
